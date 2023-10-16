@@ -5,7 +5,7 @@ import {
 	INodeProperties,
 } from 'n8n-workflow';
 
-export class FriendGridApi implements ICredentialType {
+export class SupercartCreadentialsApi implements ICredentialType {
 	name = 'supercartApi';
 	displayName = 'Supercart API';
 	properties: INodeProperties[] = [
@@ -13,6 +13,7 @@ export class FriendGridApi implements ICredentialType {
 			displayName: 'API Key',
 			name: 'apiKey',
 			type: 'string',
+			typeOptions: { password: true },
 			default: '',
 		},
 	];
@@ -21,15 +22,15 @@ export class FriendGridApi implements ICredentialType {
 		type: 'generic',
 		properties: {
 			headers: {
-				Authorization: '=Bearer {{$credentials.apiKey}}',
+				'x-api-key': '={{$credentials.apiKey}}',
 			},
 		},
 	};
 
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: 'https://api.sendgrid.com/v3',
-			url: '/marketing/contacts',
+			baseURL: 'https://supercart.pl',
+			url: '/api/n8n/test',
 		},
 	};
 }

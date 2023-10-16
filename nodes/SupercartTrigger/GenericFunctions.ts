@@ -19,8 +19,9 @@ export async function supercartApiRequest(this: IExecuteFunctions | IWebhookFunc
 
 	const apiKey = credentials.apiKey;
 
-	// const endpoint = 'https://supercart.pl/api';
-	const endpoint = 'https://webhook.site/5eacdf00-b7ab-47f4-83ae-58da981a3077';
+	const endpoint = 'https://supercart.pl/api';
+	// const endpoint = 'https://webhook.site/5eacdf00-b7ab-47f4-83ae-58da981a3077';
+	// const endpoint = 'https://localhost:4321/api';
 
 	const options: OptionsWithUri = {
 		headers: {

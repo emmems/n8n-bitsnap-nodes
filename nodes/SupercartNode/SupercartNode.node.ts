@@ -1,17 +1,19 @@
 import {
+	IDataObject,
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeOperationError,
 } from 'n8n-workflow';
+import {OptionsWithUri} from "request-promise-native";
+import {createCheckout} from "./create.checkout";
 
 // enum ACTION {
 // 	CREATE_CHECKOUT = 'create_checkout',
 // 	GET_PRODUCTS = 'get_products',
 // }
 
-export class ExampleNode implements INodeType {
+export class SupercartNode implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Supercart',
 		name: 'supercartNodeIntegration',
@@ -20,7 +22,7 @@ export class ExampleNode implements INodeType {
 		version: 1,
 		description: 'This node provides the integration with Supercart for creating checkout or payments.',
 		defaults: {
-			name: 'Example Node',
+			name: 'Supercart Node',
 		},
 		inputs: ['main'],
 		outputs: ['main'],
@@ -31,80 +33,7 @@ export class ExampleNode implements INodeType {
 			},
 		],
 		properties: [
-			// Node properties which the user gets displayed and
-			// can change on the node.
-			{
-				displayName: 'Operation',
-				name: 'operation',
-				type: 'options',
-				displayOptions: {
-					show: {
-						resource: [
-							'contact',
-						],
-					},
-				},
-				options: [
-					{
-						name: 'Create',
-						value: 'create',
-						description: 'Create a contact',
-						action: 'Create a contact',
-					},
-				],
-				default: 'create',
-				noDataExpression: true,
-			},
-			{
-				displayName: 'Email',
-				name: 'email',
-				type: 'string',
-				required: true,
-				displayOptions: {
-					show: {
-						operation: [
-							'create',
-						],
-						resource: [
-							'contact',
-						],
-					},
-				},
-				default:'',
-				placeholder: 'name@email.com',
-				description:'Primary email for the contact',
-			},
-			{
-				displayName: 'Additional Fields',
-				name: 'additionalFields',
-				type: 'collection',
-				placeholder: 'Add Field',
-				default: {},
-				displayOptions: {
-					show: {
-						resource: [
-							'contact',
-						],
-						operation: [
-							'create',
-						],
-					},
-				},
-				options: [
-					{
-						displayName: 'First Name',
-						name: 'firstName',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'Last Name',
-						name: 'lastName',
-						type: 'string',
-						default: '',
-					},
-				],
-			},
+			...createCheckout,
 		],
 	};
 
@@ -113,41 +42,48 @@ export class ExampleNode implements INodeType {
 	// with whatever the user has entered.
 	// You can make async calls and use `await`.
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+		// Handle data coming from previous nodes
 		const items = this.getInputData();
+		let responseData;
+		const returnData = [];
+		const resource = this.getNodeParameter('resource', 0) as string;
+		const operation = this.getNodeParameter('operation', 0) as string;
 
-		let item: INodeExecutionData;
-		let myString: string;
+// For each item, make an API call to create a contact
+		for (let i = 0; i < items.length; i++) {
+			if (resource === 'contact') {
+				if (operation === 'create') {
+					// Get email input
+					const email = this.getNodeParameter('email', i) as string;
+					// Get additional fields input
+					const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;
+					const data: IDataObject = {
+						email,
+					};
 
-		// Iterates over all input items and add the key "myString" with the
-		// value the parameter "myString" resolves to.
-		// (This could be a different value for each item in case it contains an expression)
-		for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-			try {
-				myString = this.getNodeParameter('myString', itemIndex, '') as string;
-				item = items[itemIndex];
+					Object.assign(data, additionalFields);
 
-				item.json['myString'] = myString;
-			} catch (error) {
-				// This node should never fail but we want to showcase how
-				// to handle errors.
-				if (this.continueOnFail()) {
-					items.push({ json: this.getInputData(itemIndex)[0].json, error, pairedItem: itemIndex });
-				} else {
-					// Adding `itemIndex` allows other workflows to handle this error
-					if (error.context) {
-						// If the error thrown already contains the context property,
-						// only append the itemIndex
-						error.context.itemIndex = itemIndex;
-						throw error;
-					}
-					throw new NodeOperationError(this.getNode(), error, {
-						itemIndex,
-					});
+					// Make HTTP request according to https://sendgrid.com/docs/api-reference/
+					const options: OptionsWithUri = {
+						headers: {
+							'Accept': 'application/json',
+						},
+						method: 'PUT',
+						body: {
+							contacts: [
+								data,
+							],
+						},
+						uri: `https://api.sendgrid.com/v3/marketing/contacts`,
+						json: true,
+					};
+					responseData = await this.helpers.requestWithAuthentication.call(this, 'friendGridApi', options);
+					returnData.push(responseData);
 				}
 			}
 		}
-
-		return this.prepareOutputData(items);
+// Map data to n8n data structure
+		return [this.helpers.returnJsonArray(returnData)];
 	}
 }
 

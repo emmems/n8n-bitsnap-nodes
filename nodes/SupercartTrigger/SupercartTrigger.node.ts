@@ -1,7 +1,13 @@
 import { IWebhookFunctions } from 'n8n-core';
 
-import {IDataObject, IHookFunctions, INodeType, INodeTypeDescription, IWebhookResponseData} from 'n8n-workflow';
-import {supercartApiRequest} from "./GenericFunctions";
+import {
+	IDataObject,
+	IHookFunctions,
+	INodeType,
+	INodeTypeDescription,
+	IWebhookResponseData,
+} from 'n8n-workflow';
+import { supercartApiRequest } from './GenericFunctions';
 
 export class SupercartTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -37,35 +43,47 @@ export class SupercartTrigger implements INodeType {
 				name: 'event',
 				type: 'options',
 				required: true,
-				default: 'transactionSuccess',
+				default: 'TRANSACTION_SUCCESS',
 				options: [
 					{
-						name: 'Dropped Cart',
-						value: 'droppedCart',
-					},
-					{
 						name: 'Subscription Create',
-						value: 'subscriptionCreate',
+						value: 'SUBSCRIPTION_CREATED',
 					},
 					{
-						name: 'Subscription Expired',
-						value: 'subscriptionExpired',
+						name: 'Subscription Deleted',
+						value: 'SUBSCRIPTION_DELETED',
 					},
 					{
-						name: 'Subscription Updated',
-						value: 'subscriptionUpdated',
+						name: 'Subscription Paused',
+						value: 'SUBSCRIPTION_PAUSED',
 					},
 					{
-						name: 'Transaction Create',
-						value: 'transactionCreate',
+						name: 'Subscription Resumed',
+						value: 'SUBSCRIPTION_RESUMED',
+					},
+					{
+						name: 'Subscription Update',
+						value: 'SUBSCRIPTION_UPDATED',
+					},
+					{
+						name: 'Transaction Charge',
+						value: 'TRANSACTION_CHARGE',
+					},
+					{
+						name: 'Transaction Created',
+						value: 'TRANSACTION_CREATED',
+					},
+					{
+						name: 'Transaction Expired',
+						value: 'TRANSACTION_EXPIRED',
 					},
 					{
 						name: 'Transaction Failure',
-						value: 'transactionFailure',
+						value: 'TRANSACTION_FAILURE',
 					},
 					{
 						name: 'Transaction Success',
-						value: 'transactionSuccess',
+						value: 'TRANSACTION_SUCCESS',
 					},
 				],
 			},
@@ -78,9 +96,9 @@ export class SupercartTrigger implements INodeType {
 				const webhookData = this.getWorkflowStaticData('node');
 				const webhookUrl = this.getNodeWebhookUrl('default');
 				const event = this.getNodeParameter('event') as string;
-				const { hooks: webhooks } = await supercartApiRequest.call(this, 'GET', '/hooks');
+				const { hooks: webhooks } = await supercartApiRequest.call(this, 'GET', '/n8n/hooks');
 				for (const webhook of webhooks) {
-					if (webhook.target_url === webhookUrl && webhook.event === snakeCase(event)) {
+					if (webhook.target_url === webhookUrl && webhook.event === event) {
 						webhookData.webhookId = webhook.hook_id;
 						return true;
 					}
@@ -92,17 +110,17 @@ export class SupercartTrigger implements INodeType {
 				const webhookData = this.getWorkflowStaticData('node');
 				const event = this.getNodeParameter('event') as string;
 				const body: IDataObject = {
-					event: snakeCase(event),
-					target_url: webhookUrl,
+					event: event,
+					targetURL: webhookUrl,
 				};
-				const webhook = await supercartApiRequest.call(this, 'POST', '/hook', body);
+				const webhook = await supercartApiRequest.call(this, 'POST', '/n8n/hook', body);
 				webhookData.webhookId = webhook.hook_id;
 				return true;
 			},
 			async delete(this: IHookFunctions): Promise<boolean> {
 				const webhookData = this.getWorkflowStaticData('node');
 				try {
-					await supercartApiRequest.call(this, 'DELETE', `/hook/${webhookData.webhookId}`);
+					await supercartApiRequest.call(this, 'DELETE', `/n8n/hook/${webhookData.webhookId}`);
 				} catch (error) {
 					return false;
 				}
@@ -115,11 +133,7 @@ export class SupercartTrigger implements INodeType {
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
 		const req = this.getRequestObject();
 		return {
-			workflowData: [
-				this.helpers.returnJsonArray(req.body),
-			],
+			workflowData: [this.helpers.returnJsonArray(req.body)],
 		};
+	}
 }
-
-const snakeCase: (str: string) => string = str => str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-
