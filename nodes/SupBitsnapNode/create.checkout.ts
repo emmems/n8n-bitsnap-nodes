@@ -20,7 +20,7 @@ const productResource: INodeProperties[] = [
 		name: 'productsList',
 		placeholder: 'Add Products',
 		type: 'fixedCollection',
-		default: '',
+		default: {},
 		typeOptions: {
 			multipleValues: true,
 		},
@@ -34,7 +34,8 @@ const productResource: INodeProperties[] = [
 						displayName: 'Product ID',
 						name: 'name',
 						type: 'string',
-						default: 'Identifier of product',
+						default: '',
+						description: 'Identifier of product',
 					},
 					{
 						displayName: 'Quantity',
@@ -62,11 +63,10 @@ const productResource: INodeProperties[] = [
 		name: 'metadataList',
 		placeholder: 'Add Metadata',
 		type: 'fixedCollection',
-		default: '',
+		default: {},
 		typeOptions: {
 			multipleValues: true,
 		},
-		description: '',
 		options: [
 			{
 				name: 'metadataValues',
@@ -83,7 +83,7 @@ const productResource: INodeProperties[] = [
 						name: 'value',
 						type: 'string',
 						default: '',
-						description: 'Value to set for the metadata key.',
+						description: 'Value to set for the metadata key',
 					},
 				],
 			},
@@ -143,40 +143,6 @@ const productResource: INodeProperties[] = [
 		description: 'Price for delivery (optional)',
 	},
 ];
-
-// const deliveryResource: INodeProperties[] = [
-// 	{
-// 		displayName: 'Additional Fields',
-// 		name: 'additionalFields',
-// 		type: 'collection',
-// 		placeholder: 'Add Field',
-// 		default: {},
-// 		displayOptions: {
-// 			show: {
-// 				resource: [
-// 					'product',
-// 				],
-// 				operation: [
-// 					Operation.CreateCheckout,
-// 				],
-// 			},
-// 		},
-// 		options: [
-// 			{
-// 				displayName: 'First Name',
-// 				name: 'firstName',
-// 				type: 'string',
-// 				default: '',
-// 			},
-// 			{
-// 				displayName: 'Last Name',
-// 				name: 'lastName',
-// 				type: 'string',
-// 				default: '',
-// 			},
-// 		],
-// 	},
-// ];
 
 export const createCheckout: INodeProperties[] = [
 	{
@@ -294,7 +260,6 @@ export const createCheckout: INodeProperties[] = [
 			}
 		],
 		default: [], // Initially selected options
-		description: 'Checkout options',
 		displayOptions: { // the resources and operations to display this element with
 			show: {
 				resource: allResources,

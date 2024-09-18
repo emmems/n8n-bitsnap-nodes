@@ -1,10 +1,8 @@
 {
-	"node": "n8n-nodes-base.Supercart",
+	"node": "n8n-nodes-base.Bitsnap",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": [
-		"Miscellaneous"
-	],
+	"categories": ["Miscellaneous"],
 	"resources": {
 		"credentialDocumentation": [
 			{

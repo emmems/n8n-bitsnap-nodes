@@ -5,9 +5,9 @@ import {
 	INodeProperties,
 } from 'n8n-workflow';
 
-export class SupercartCreadentialsApi implements ICredentialType {
-	name = 'supercartApi';
-	displayName = 'Supercart API';
+export class BitsnapCreadentialsApi implements ICredentialType {
+	name = 'bitsnapApi';
+	displayName = 'Bitsnap API';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'API Key',
@@ -29,7 +29,7 @@ export class SupercartCreadentialsApi implements ICredentialType {
 
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: 'https://supercart.pl',
+			baseURL: 'https://bitsnap.pl',
 			url: '/api/n8n/test',
 		},
 	};

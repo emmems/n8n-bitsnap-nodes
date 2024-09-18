@@ -7,25 +7,25 @@ import {
 	INodeTypeDescription,
 	IWebhookResponseData,
 } from 'n8n-workflow';
-import { supercartApiRequest } from './GenericFunctions';
+import { bitsnapApiRequest } from './GenericFunctions';
 
-export class SupercartTrigger implements INodeType {
+export class BitsnapTrigger implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Supercart Trigger',
-		name: 'supercartTrigger',
-		icon: 'file:supercart-icon.svg',
+		displayName: 'Bitsnap Trigger',
+		name: 'bitsnapTrigger',
+		icon: 'file:bitsnap-icon.svg',
 		group: ['trigger'],
 		version: 1,
 		subtitle: '={{$parameter["event"]}}',
-		description: 'Handle Supercart events via webhooks',
+		description: 'Handle Bitsnap events via webhooks',
 		defaults: {
-			name: 'Supercart Trigger',
+			name: 'Bitsnap Trigger',
 		},
 		inputs: [],
 		outputs: ['main'],
 		credentials: [
 			{
-				name: 'supercartApi',
+				name: 'bitsnapApi',
 				required: true,
 			},
 		],
@@ -96,7 +96,7 @@ export class SupercartTrigger implements INodeType {
 				const webhookData = this.getWorkflowStaticData('node');
 				const webhookUrl = this.getNodeWebhookUrl('default');
 				const event = this.getNodeParameter('event') as string;
-				const { hooks: webhooks } = await supercartApiRequest.call(this, 'GET', '/n8n/hooks');
+				const { hooks: webhooks } = await bitsnapApiRequest.call(this, 'GET', '/n8n/hooks');
 				for (const webhook of webhooks) {
 					if (webhook.target_url === webhookUrl && webhook.event === event) {
 						webhookData.webhookId = webhook.hook_id;
@@ -113,14 +113,14 @@ export class SupercartTrigger implements INodeType {
 					event: event,
 					targetURL: webhookUrl,
 				};
-				const webhook = await supercartApiRequest.call(this, 'POST', '/n8n/hook', body);
+				const webhook = await bitsnapApiRequest.call(this, 'POST', '/n8n/hook', body);
 				webhookData.webhookId = webhook.hook_id;
 				return true;
 			},
 			async delete(this: IHookFunctions): Promise<boolean> {
 				const webhookData = this.getWorkflowStaticData('node');
 				try {
-					await supercartApiRequest.call(this, 'DELETE', `/n8n/hook/${webhookData.webhookId}`);
+					await bitsnapApiRequest.call(this, 'DELETE', `/n8n/hook/${webhookData.webhookId}`);
 				} catch (error) {
 					return false;
 				}

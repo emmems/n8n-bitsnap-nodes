@@ -5,36 +5,35 @@ import {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import {OptionsWithUri} from "request-promise-native";
-import {createCheckout} from "./create.checkout";
+import { OptionsWithUri } from 'request-promise-native';
+import { createCheckout } from './create.checkout';
 
 // enum ACTION {
 // 	CREATE_CHECKOUT = 'create_checkout',
 // 	GET_PRODUCTS = 'get_products',
 // }
 
-export class SupercartNode implements INodeType {
+export class BitsnapNodeIntegration implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Supercart',
-		name: 'supercartNodeIntegration',
+		displayName: 'Bitsnap',
+		name: 'bitsnapNodeIntegration',
 		group: ['transform'],
-		icon: 'file:supercart-icon.svg',
+		icon: 'file:bitsnap-icon.svg',
 		version: 1,
-		description: 'This node provides the integration with Supercart for creating checkout or payments.',
+		description:
+			'This node provides the integration with Bitsnap for creating checkout or payments.',
 		defaults: {
-			name: 'Supercart Node',
+			name: 'Bitsnap Node',
 		},
 		inputs: ['main'],
 		outputs: ['main'],
 		credentials: [
 			{
-				name: 'supercartApi',
+				name: 'bitsnapApi',
 				required: true,
 			},
 		],
-		properties: [
-			...createCheckout,
-		],
+		properties: [...createCheckout],
 	};
 
 	// The function below is responsible for actually doing whatever this node
@@ -49,7 +48,7 @@ export class SupercartNode implements INodeType {
 		const resource = this.getNodeParameter('resource', 0) as string;
 		const operation = this.getNodeParameter('operation', 0) as string;
 
-// For each item, make an API call to create a contact
+		// For each item, make an API call to create a contact
 		for (let i = 0; i < items.length; i++) {
 			if (resource === 'contact') {
 				if (operation === 'create') {
@@ -66,24 +65,25 @@ export class SupercartNode implements INodeType {
 					// Make HTTP request according to https://sendgrid.com/docs/api-reference/
 					const options: OptionsWithUri = {
 						headers: {
-							'Accept': 'application/json',
+							Accept: 'application/json',
 						},
 						method: 'PUT',
 						body: {
-							contacts: [
-								data,
-							],
+							contacts: [data],
 						},
 						uri: `https://api.sendgrid.com/v3/marketing/contacts`,
 						json: true,
 					};
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'friendGridApi', options);
+					responseData = await this.helpers.requestWithAuthentication.call(
+						this,
+						'friendGridApi',
+						options,
+					);
 					returnData.push(responseData);
 				}
 			}
 		}
-// Map data to n8n data structure
+		// Map data to n8n data structure
 		return [this.helpers.returnJsonArray(returnData)];
 	}
 }
-

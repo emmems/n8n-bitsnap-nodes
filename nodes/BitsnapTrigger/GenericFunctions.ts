@@ -13,13 +13,13 @@ import {
 	IWebhookFunctions,
 } from 'n8n-workflow';
 
-export async function supercartApiRequest(this: IExecuteFunctions | IWebhookFunctions | IHookFunctions | ILoadOptionsFunctions, method: string, resource: string, body: any = {}, query: IDataObject = {}, uri?: string, option: IDataObject = {}): Promise<any> { // tslint:disable-line:no-any
+export async function bitsnapApiRequest(this: IExecuteFunctions | IWebhookFunctions | IHookFunctions | ILoadOptionsFunctions, method: string, resource: string, body: any = {}, query: IDataObject = {}, uri?: string, option: IDataObject = {}): Promise<any> { // tslint:disable-line:no-any
 
-	const credentials = await this.getCredentials('supercartApi') as IDataObject;
+	const credentials = await this.getCredentials('bitsnapApi') as IDataObject;
 
 	const apiKey = credentials.apiKey;
 
-	const endpoint = 'https://supercart.pl/api';
+	const endpoint = 'https://bitsnap.pl/api';
 	// const endpoint = 'https://webhook.site/5eacdf00-b7ab-47f4-83ae-58da981a3077';
 	// const endpoint = 'https://localhost:4321/api';
 
