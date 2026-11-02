@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- Published from GitHub Actions with an npm provenance statement, which n8n requires for verified community nodes. No code changes.
+
 ## 1.0.0
 
 Rebuilt from scratch on the Bitsnap public API v1.
