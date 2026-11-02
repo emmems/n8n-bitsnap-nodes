@@ -1,0 +1,103 @@
+# Publishes this n8n community node package to npm on every version tag push.
+#
+# Starting May 1 2026, n8n requires all community nodes to be published via
+# GitHub Actions with npm provenance statements. This workflow satisfies that
+# requirement. Provenance lets anyone cryptographically verify that a package
+# was built by this exact workflow, from this exact repository and commit.
+#
+# ─── ONE-TIME SETUP ────────────────────────────────────────────────────────────
+#
+# Option A — OIDC Trusted Publishing (recommended, no long-lived secrets):
+#   1. Log in to npmjs.com and open your package's settings.
+#   2. Under "Publish access" → "Trusted Publishers", click "Add a publisher".
+#   3. Select GitHub Actions and fill in:
+#        Repository owner: emmems
+#        Repository name:  n8n-bitsnap-nodes
+#        Workflow name:    publish.yml
+#        Environment:      (leave blank unless you use GitHub Environments)
+#   4. Leave the NPM_TOKEN secret unset in this repository. GitHub's OIDC
+#      token is used instead — no secret ever touches your repo settings.
+#
+# Option B — npm Automation Token (fallback):
+#   1. On npmjs.com: Access Tokens → Generate New Token → Granular Access Token.
+#      Scope it to this package with "Read and write" publish permission.
+#   2. In GitHub: Settings → Secrets and variables → Actions → New secret.
+#      Name it NPM_TOKEN and paste the token value.
+#
+# Both options work with --provenance. Provenance is signed by GitHub's OIDC
+# infrastructure regardless of how npm authentication is handled.
+#
+# ─── RELEASE PROCESS ───────────────────────────────────────────────────────────
+#
+# `npm run release` (n8n-node release) only works on a branch named `main`.
+# From any other branch, release by hand:
+#
+#   1. Bump "version" in package.json and update CHANGELOG.md, then commit.
+#   2. Tag the commit and push the tag, which triggers this workflow:
+#        git tag vX.Y.Z && git push origin vX.Y.Z
+#
+# To publish from a local machine instead, run
+# `RELEASE_MODE=true npm publish --access public`.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  # Required to mint an OIDC token for npm provenance attestation.
+  id-token: write
+  # Scoped down from the default (write) for least-privilege publishing.
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # npm >= 11.5.1 is needed for OIDC trusted publishing; Node 24 ships it.
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: 'npm ci'
+
+      - name: Run lint
+        run: 'npm run lint'
+
+      - name: Run build
+        run: 'npm run build'
+
+      - name: Run tests
+        run: 'npm test'
+
+      - name: Check whether this version is already on npm
+        id: published
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already on npm; skipping publish."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: steps.published.outputs.exists != 'true'
+        # Publishes to npm with a provenance attestation (requires id-token: write above).
+        run: 'npm publish --provenance --access public'
+        env:
+          # `prepublishOnly` runs `n8n-node prerelease`, which refuses to publish
+          # unless RELEASE_MODE is set.
+          RELEASE_MODE: 'true'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
