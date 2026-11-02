@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- The Bitsnap, Bitsnap Trigger and Bitsnap API credential icons now show the Bitsnap logo (the blue dotted "B") instead of a placeholder image. No functional changes.
+
 ## 1.0.1
 
 - Published from GitHub Actions with an npm provenance statement, which n8n requires for verified community nodes. No code changes.
