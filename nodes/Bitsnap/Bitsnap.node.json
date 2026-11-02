@@ -1,0 +1,18 @@
+{
+	"node": "@emmems/n8n-nodes-bitsnap.bitsnap",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Sales", "Finance & Accounting"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/emmems/n8n-bitsnap-nodes#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/emmems/n8n-bitsnap-nodes#readme"
+			}
+		]
+	}
+}
