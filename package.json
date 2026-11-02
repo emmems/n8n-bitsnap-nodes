@@ -1,5 +1,5 @@
 {
-	"name": "@emmems/n8n-nodes-bitsnap",
+	"name": "@emems/n8n-nodes-bitsnap",
 	"version": "1.0.0",
 	"description": "n8n community nodes for Bitsnap (bitsnap.pl) public API",
 	"keywords": [
@@ -46,10 +46,10 @@
 		]
 	},
 	"devDependencies": {
-		"@n8n/node-cli": "*",
+		"@n8n/node-cli": "1.0.1",
 		"@types/node": "^24.10.1",
 		"eslint": "9.32.0",
-		"n8n-workflow": "2.45.4",
+		"n8n-workflow": "3.0.1",
 		"prettier": "3.6.2",
 		"release-it": "^21.1.0",
 		"typescript": "5.9.2",

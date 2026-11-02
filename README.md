@@ -1,4 +1,4 @@
-# @emmems/n8n-nodes-bitsnap
+# @emems/n8n-nodes-bitsnap
 
 n8n community nodes for the [Bitsnap](https://bitsnap.pl) public API (v1).
 
@@ -27,7 +27,7 @@ Links: [bitsnap.pl](https://bitsnap.pl) · [API documentation](https://docs.bits
 In n8n, go to **Settings → Community Nodes → Install** and enter:
 
 ```
-@emmems/n8n-nodes-bitsnap
+@emems/n8n-nodes-bitsnap
 ```
 
 See the [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) for details.
@@ -36,7 +36,7 @@ For a self-hosted n8n you can also install the package with npm in your n8n cust
 
 ```bash
 cd ~/.n8n/nodes
-npm install @emmems/n8n-nodes-bitsnap
+npm install @emems/n8n-nodes-bitsnap
 ```
 
 Restart n8n afterwards.

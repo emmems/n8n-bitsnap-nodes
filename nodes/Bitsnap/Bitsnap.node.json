@@ -1,5 +1,5 @@
 {
-	"node": "@emmems/n8n-nodes-bitsnap.bitsnap",
+	"node": "@emems/n8n-nodes-bitsnap.bitsnap",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": ["Sales", "Finance & Accounting"],

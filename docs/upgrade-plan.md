@@ -78,7 +78,7 @@ How the API works:
 
 1. **What "latest 3.x" means.** There is no Bitsnap API 3.x: the API is `v1` with OpenAPI `1.0.0`. The 3.x is probably `n8n-workflow` 3.x, which is currently at rc 3.0.1. The plan assumes **Bitsnap API v1 at instapay HEAD, built against stable n8n 2.x and checked against the 3.x rc**.
 2. **Chat.** Either wait for `emems/chat-v1` to merge, or ship chat behind a later minor version. Recommended: later, as 1.1.
-3. **npm name.** Keep `@emmems/n8n-nodes-bitsnap`, which fits the `@scope/n8n-nodes-*` convention, and move it to public npmjs. The other option is `n8n-nodes-bitsnap`. The GitHub repo must be public, and the owner and author must match npm.
+3. **npm name.** Publish as `@emems/n8n-nodes-bitsnap` (the npm account is `emems`), which fits the `@scope/n8n-nodes-*` convention, and move it to public npmjs. The other option is `n8n-nodes-bitsnap`. The GitHub repo must be public, and the owner and author must match npm.
 4. **Breaking rename.** Rename the nodes to `bitsnap` and `bitsnapTrigger`, and the credential to `bitsnapApi`. This is safe because 0.1.0 never loaded in n8n.
 5. **Legacy `/api/n8n/*` on the server.** Recommended: deprecate it in instapay once 1.0 ships, since it is unsigned, matches one event only, and its list response is broken.
 
@@ -194,7 +194,7 @@ The old `createCheckout` fields map onto the new operations as follows:
    - Add a `.github/workflows/publish.yml` that runs on a version tag: `npm ci`, `n8n-node build`, `n8n-node lint`, the tests, then `npm publish --provenance --access public`. It needs `permissions: id-token: write` and an npmjs automation token or trusted publishing.
    - Versioning happens locally with `n8n-node release`, which bumps the version, writes the changelog, and creates the tag and push that trigger the workflow.
 4. Make `github.com/emmems/n8n-bitsnap-nodes` public, and keep `repository`, `author` and `homepage` consistent. `homepage` currently points at studly.pl and should become bitsnap.pl.
-5. After `1.0.0` is on npm, run `npx @n8n/scan-community-package @emmems/n8n-nodes-bitsnap` and then submit the package for verification on the n8n Creator Portal.
+5. After `1.0.0` is on npm, run `npx @n8n/scan-community-package @emems/n8n-nodes-bitsnap` and then submit the package for verification on the n8n Creator Portal.
 6. Remove the GitHub Packages token from `.npmrc` once nothing uses it.
 
 ## Phase 7: Requests for instapay (outside this repo)
