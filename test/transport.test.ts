@@ -9,6 +9,8 @@ import type {
 import { NodeApiError } from 'n8n-workflow';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { decodeBody } from './request-body';
+
 import { BitsnapApi } from '../credentials/BitsnapApi.credentials';
 import { Bitsnap } from '../nodes/Bitsnap/Bitsnap.node';
 import { accountResource } from '../nodes/Bitsnap/resources/account';
@@ -54,18 +56,21 @@ const node = {
 function createContext(responses: unknown[]): {
 	context: IExecuteFunctions;
 	requests: RecordedRequest[];
+	rawBodies: unknown[];
 } {
 	const requests: RecordedRequest[] = [];
+	const rawBodies: unknown[] = [];
 	const queue = [...responses];
 
 	const httpRequestWithAuthentication = async (
 		credentialType: string,
 		requestOptions: IHttpRequestOptions,
 	) => {
+		rawBodies.push(requestOptions.body);
 		requests.push({
 			credentialType,
 			url: requestOptions.url,
-			body: (requestOptions.body ?? {}) as IDataObject,
+			body: decodeBody(requestOptions.body),
 			headers: requestOptions.headers ?? {},
 		});
 
@@ -82,7 +87,7 @@ function createContext(responses: unknown[]): {
 		helpers: { httpRequestWithAuthentication },
 	};
 
-	return { context: context as unknown as IExecuteFunctions, requests };
+	return { context: context as unknown as IExecuteFunctions, requests, rawBodies };
 }
 
 /**
@@ -552,6 +557,22 @@ describe('bitsnapRpc', () => {
 		expect(requests[0].headers['Idempotency-Key']).toBeUndefined();
 	});
 
+	it('sends the body as a JSON string, also when it is empty', async () => {
+		// n8n drops an empty object body, and the API answers a request
+		// without a body with 400 Bad Request.
+		const { context, rawBodies } = createContext([
+			{ statusCode: 200, body: {}, headers: {} },
+			{ statusCode: 200, body: {}, headers: {} },
+			{ statusCode: 200, body: {}, headers: {} },
+		]);
+
+		await bitsnapRpc.call(context, 'AccountService', 'GetAccount');
+		await bitsnapRpc.call(context, 'AccountService', 'GetAccount', {});
+		await bitsnapRpc.call(context, 'ProductsService', 'GetProduct', { id: 'p1' });
+
+		expect(rawBodies).toEqual(['{}', '{}', '{"id":"p1"}']);
+	});
+
 	it('turns an error of the API into a node error', async () => {
 		const { context } = createContext([
 			{
@@ -852,7 +873,9 @@ describe('credential', () => {
 		expect(request.url).toBe('/api/v1/bitsnap.v1.AccountService/GetAccount');
 		expect(request.headers).toEqual({ 'Content-Type': 'application/json' });
 		expect(request.json).toBe(true);
-		expect(request.body).toEqual({});
+		// n8n drops an empty object body, and the API answers an empty body
+		// with 400 Bad Request, so the empty message is sent as a string.
+		expect(request.body).toBe('{}');
 	});
 });
 

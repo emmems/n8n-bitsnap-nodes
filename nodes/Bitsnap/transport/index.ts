@@ -641,7 +641,10 @@ export async function bitsnapRpc<T>(
 	const requestOptions: IHttpRequestOptions = {
 		method: 'POST',
 		url,
-		body: body ?? {},
+		// A JSON string, not an object: n8n drops an empty object body, and the
+		// API answers a request without a body (`GetAccount`, a list without
+		// filters) with 400 Bad Request. Its JSON response is still parsed.
+		body: JSON.stringify(body ?? {}),
 		headers,
 		json: true,
 		returnFullResponse: true,

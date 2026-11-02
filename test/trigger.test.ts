@@ -9,6 +9,8 @@ import type {
 } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
+import { decodeBody } from './request-body';
+
 import { BitsnapTrigger, webhookName } from '../nodes/BitsnapTrigger/BitsnapTrigger.node';
 import {
 	ALL_EVENTS,
@@ -232,7 +234,7 @@ function createHookContext(
 	const httpRequestWithAuthentication = async (_type: string, request: IHttpRequestOptions) => {
 		calls.push({
 			method: request.url.split('/').pop() ?? '',
-			body: (request.body ?? {}) as IDataObject,
+			body: decodeBody(request.body),
 			headers: request.headers ?? {},
 		});
 		const next = queue.shift();

@@ -1,6 +1,8 @@
 import type { IDataObject, IExecuteFunctions, IHttpRequestOptions } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
+import { decodeBody } from './request-body';
+
 import {
 	buildCreateProductBody,
 	buildImages,
@@ -361,7 +363,7 @@ function createContext(
 			httpRequestWithAuthentication: async (_type: string, options: IHttpRequestOptions) => {
 				requests.push({
 					url: options.url,
-					body: (options.body ?? {}) as IDataObject,
+					body: decodeBody(options.body),
 					headers: options.headers ?? {},
 				});
 				const next = queue.shift();

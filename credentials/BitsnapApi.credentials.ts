@@ -49,7 +49,9 @@ export class BitsnapApi implements ICredentialType {
 			url: '/api/v1/bitsnap.v1.AccountService/GetAccount',
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: {},
+			// A string: n8n drops an empty object body, and the API answers a
+			// request without a body with 400 Bad Request.
+			body: '{}',
 			json: true,
 		},
 		rules: [

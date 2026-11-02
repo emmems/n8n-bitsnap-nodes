@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- Fixed: the credential test failed with "Bad Request", and so did calls without parameters such as Account → Get. n8n drops an empty JSON object body, and the Bitsnap API answers a request without a body with `400`. Request bodies are now always sent as JSON text (`{}` when empty).
+
 ## 1.0.2
 
 - The Bitsnap, Bitsnap Trigger and Bitsnap API credential icons now show the Bitsnap logo (the blue dotted "B") instead of a placeholder image. No functional changes.

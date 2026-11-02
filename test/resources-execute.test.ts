@@ -9,6 +9,8 @@ import type { IDataObject, IExecuteFunctions, IHttpRequestOptions } from 'n8n-wo
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
 
+import { decodeBody } from './request-body';
+
 import { checkoutResource } from '../nodes/Bitsnap/resources/checkout';
 import { couponResource } from '../nodes/Bitsnap/resources/coupon';
 import { couponCodeResource } from '../nodes/Bitsnap/resources/couponCode';
@@ -69,7 +71,7 @@ function makeStub(options: StubOptions): Stub {
 		helpers: {
 			// The real full-response shape of n8n: `{ body, headers, statusCode, statusMessage }`.
 			httpRequestWithAuthentication: async (_type: string, request: IHttpRequestOptions) => {
-				requests.push(request);
+				requests.push({ ...request, body: decodeBody(request.body) });
 				const body = options.response ?? {};
 				return { body, headers: {}, statusCode: 200, statusMessage: 'OK' };
 			},
