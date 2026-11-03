@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4
+
+- Moved the information from the notice banners in the Bitsnap node into the descriptions it belongs to, as asked in the n8n verification review: the Create Link and Settle Test Payment operations (Checkout), the Percent Off field and the Update operation (Coupon), the Update operation (Coupon Code), and the Create operation and the resource itself (Webhook). The Resource dropdown now shows each resource's description. No functional changes.
+
 ## 1.0.3
 
 - Fixed: the credential test failed with "Bad Request", and so did calls without parameters such as Account → Get. n8n drops an empty JSON object body, and the Bitsnap API answers a request without a body with `400`. Request bodies are now always sent as JSON text (`{}` when empty).

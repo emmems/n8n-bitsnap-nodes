@@ -1,6 +1,6 @@
 {
 	"name": "@emems/n8n-nodes-bitsnap",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "n8n community nodes for Bitsnap (bitsnap.pl) public API",
 	"keywords": [
 		"n8n-community-node-package",

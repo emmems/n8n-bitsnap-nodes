@@ -77,39 +77,14 @@ export const couponProperties: INodeProperties[] = [
 				name: 'Update',
 				value: 'update',
 				action: 'Update a coupon',
-				description: 'Replace the settings of a coupon, its codes stay',
+				description:
+					'Replace the settings of a coupon. Its codes stay. A product restriction, an expiry or the delivery switch left empty is removed.',
 			},
 		],
 		default: 'getMany',
 	},
 	couponLocator(['update'], 'The coupon to change'),
 	couponLocator(['delete'], 'The coupon to delete, with all its codes'),
-	{
-		displayName:
-			'Only percentage discounts can be set through the API, up to the maximum discount of the API key (30% unless the owner changed it). The API refuses fixed-amount discounts, so create a fixed-amount coupon in the Bitsnap dashboard under Coupons.',
-		name: 'discountNotice',
-		type: 'notice',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['coupon'],
-				operation: ['create', 'update'],
-			},
-		},
-	},
-	{
-		displayName:
-			'The update replaces the settings of the coupon: a product restriction, an expiry or the delivery switch left empty below is removed from it.',
-		name: 'updateNotice',
-		type: 'notice',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['coupon'],
-				operation: ['update'],
-			},
-		},
-	},
 	{
 		displayName: 'Name',
 		name: 'name',
@@ -138,7 +113,7 @@ export const couponProperties: INodeProperties[] = [
 			},
 		},
 		description:
-			'Percentage taken off, 20 means 20%. Must be above 0 and at most the maximum discount of the API key (30 unless the owner changed it).',
+			'Percentage taken off, 20 means 20%. Must be above 0 and at most the maximum discount of the API key (30 unless the owner changed it). The API accepts percentage discounts only. To give a fixed amount off, create the coupon in the Bitsnap dashboard under Coupons.',
 	},
 	{
 		displayName: 'Additional Fields',

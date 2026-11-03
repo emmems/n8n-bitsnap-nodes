@@ -138,7 +138,8 @@ async function deleteWebhook(context: IExecuteFunctions, itemIndex: number): Pro
 export const webhookResource: BitsnapResource = {
 	value: 'webhook',
 	name: 'Webhook',
-	description: 'The webhook endpoints of the shop',
+	description:
+		'The webhook endpoints of the shop. Bitsnap Trigger registers and removes its own webhook. Use this resource only for endpoints that other systems receive.',
 	properties: webhookProperties,
 
 	async execute(

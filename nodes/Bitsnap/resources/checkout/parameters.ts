@@ -49,29 +49,18 @@ export const checkoutProperties: INodeProperties[] = [
 				name: 'Create Link',
 				value: 'createLink',
 				action: 'Create a checkout link',
-				description: 'Create an order for existing products and get the URL the buyer pays at',
+				description:
+					'Create an order for existing products and get the URL the buyer pays at. Does not count towards the daily write limit of the API key.',
 			},
 			{
 				name: 'Settle Test Payment',
 				value: 'settleTestPayment',
 				action: 'Settle a test payment',
-				description: 'Finish a test-mode order as paid or failed (test API keys only)',
+				description:
+					'Finish a test-mode order as paid or failed. Works only with a test API key (bs_test_…). A live key is refused with "test_mode_only".',
 			},
 		],
 		default: 'createLink',
-	},
-	{
-		displayName:
-			'Creating a link does not count towards the daily write limit of the API key. The key still needs the "checkout:create" scope and its write switch.',
-		name: 'createLinkNotice',
-		type: 'notice',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['checkout'],
-				operation: ['createLink'],
-			},
-		},
 	},
 	{
 		displayName: 'Items',
@@ -136,19 +125,6 @@ export const checkoutProperties: INodeProperties[] = [
 					'Absolute https URL the buyer is sent to after a successful payment, the default thank-you page of the shop is used when empty',
 			},
 		],
-	},
-	{
-		displayName:
-			'Settling works only with a test API key (bs_test_…). A live key is refused with "test_mode_only".',
-		name: 'settleTestPaymentNotice',
-		type: 'notice',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['checkout'],
-				operation: ['settleTestPayment'],
-			},
-		},
 	},
 	{
 		displayName: 'Order ID',

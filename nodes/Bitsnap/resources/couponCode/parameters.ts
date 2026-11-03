@@ -35,7 +35,8 @@ export const couponCodeProperties: INodeProperties[] = [
 				name: 'Update',
 				value: 'update',
 				action: 'Update a coupon code',
-				description: 'Replace the settings of a code',
+				description:
+					'Replace the settings of a code. A redemption limit, a minimum order amount or an expiry left empty is removed.',
 			},
 		],
 		default: 'create',
@@ -84,19 +85,6 @@ export const couponCodeProperties: INodeProperties[] = [
 		},
 		description:
 			'ID of the code, found in the "codes" of Coupon → Get Many or in the output of Coupon Code → Create',
-	},
-	{
-		displayName:
-			'The update replaces the settings of the code: a redemption limit, a minimum order amount or an expiry left empty below is removed from it.',
-		name: 'updateNotice',
-		type: 'notice',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['couponCode'],
-				operation: ['update'],
-			},
-		},
 	},
 	{
 		displayName: 'Code',

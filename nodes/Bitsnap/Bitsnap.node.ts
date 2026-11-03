@@ -54,6 +54,7 @@ export class Bitsnap implements INodeType {
 				options: bitsnapResources.map((resource) => ({
 					name: resource.name,
 					value: resource.value,
+					description: resource.description,
 				})),
 				default: 'product',
 			},

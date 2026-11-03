@@ -234,10 +234,10 @@ describe('couponResource', () => {
 		const percent = couponResource.properties.find((property) => property.name === 'percentOff');
 		expect(percent?.typeOptions?.minValue).toBe(0.01);
 
-		const notice = couponResource.properties.find((property) => property.name === 'discountNotice');
-		expect(notice?.displayName).toMatch(/percentage discounts/);
-		expect(notice?.displayName).toMatch(/30%/);
-		expect(notice?.displayName).toMatch(/dashboard/);
+		expect(percent?.description).toMatch(/percentage discounts/);
+		expect(percent?.description).toMatch(/30/);
+		expect(percent?.description).toMatch(/dashboard/);
+		expect(couponResource.properties.filter((property) => property.type === 'notice')).toEqual([]);
 	});
 
 	it('picks the coupon from the searchable list of coupons', () => {

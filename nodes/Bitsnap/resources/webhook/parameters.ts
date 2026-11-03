@@ -26,7 +26,8 @@ export const webhookProperties: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				action: 'Create a webhook',
-				description: 'Register a webhook endpoint, its signing secret is shown only once',
+				description:
+					'Register a webhook endpoint. Its signing secret ("signingSecret", whsec_…) is returned only once and stays in the execution data, where anyone who can view executions can read it. Store it right away, for example in a credential, and consider turning off saving successful executions in the workflow settings.',
 			},
 			{
 				name: 'Delete',
@@ -42,18 +43,6 @@ export const webhookProperties: INodeProperties[] = [
 			},
 		],
 		default: 'getMany',
-	},
-	{
-		displayName:
-			'The Bitsnap Trigger node registers and removes its own webhook automatically. Use this resource only for endpoints that other systems receive.',
-		name: 'triggerNotice',
-		type: 'notice',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['webhook'],
-			},
-		},
 	},
 	{
 		displayName: 'Webhook',
@@ -137,19 +126,6 @@ export const webhookProperties: INodeProperties[] = [
 				description: `Label of the endpoint, at most ${WEBHOOK_NAME_MAX_LENGTH} characters`,
 			},
 		],
-	},
-	{
-		displayName:
-			'The signing secret (whsec_…) is returned only by this call and cannot be read again. The output item ("signingSecret") is also stored in the execution data of this workflow, where everyone who can view executions can read it. Store the secret now, for example in a credential or a secrets manager, and consider turning off saving of successful executions in the workflow settings.',
-		name: 'secretNotice',
-		type: 'notice',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['webhook'],
-				operation: ['create'],
-			},
-		},
 	},
 	{
 		displayName: 'Return All',

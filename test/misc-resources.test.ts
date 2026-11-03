@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Bitsnap } from '../nodes/Bitsnap/Bitsnap.node';
 
 import {
 	buildCreateCouponCodeBody,
@@ -436,19 +437,29 @@ describe('webhookResource', () => {
 		}
 	});
 
-	it('warns that the trigger manages its own webhook', () => {
-		const notice = webhookResource.properties.find((property) => property.name === 'triggerNotice');
+	it('shows in the Resource option that the trigger manages its own webhook', () => {
+		const resource = new Bitsnap().description.properties.find(
+			(property) => property.name === 'resource',
+		);
+		const webhook = resource?.options?.find(
+			(option) => 'value' in option && option.value === 'webhook',
+		);
 
-		expect(notice?.type).toBe('notice');
-		expect(notice?.displayName).toContain('Bitsnap Trigger');
+		expect(webhook?.description).toContain('Bitsnap Trigger');
 	});
 
-	it('says that the signing secret is also stored in the execution data', () => {
-		const notice = webhookResource.properties.find((property) => property.name === 'secretNotice');
+	it('says in the Create description that the signing secret is also stored in the execution data', () => {
+		const operation = webhookResource.properties.find((property) => property.name === 'operation');
+		const create = operation?.options?.find(
+			(option) => 'value' in option && option.value === 'create',
+		);
 
-		expect(notice?.type).toBe('notice');
-		expect(notice?.displayName).toContain('signingSecret');
-		expect(notice?.displayName).toContain('execution data');
+		expect(create?.description).toContain('signingSecret');
+		expect(create?.description).toContain('execution data');
+	});
+
+	it('has no notice parameters', () => {
+		expect(webhookResource.properties.filter((property) => property.type === 'notice')).toEqual([]);
 	});
 
 	it('picks the webhook from the searchable list of webhooks', () => {
