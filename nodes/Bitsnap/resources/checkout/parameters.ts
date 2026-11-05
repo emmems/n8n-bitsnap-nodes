@@ -144,6 +144,7 @@ export const checkoutProperties: INodeProperties[] = [
 		displayName: 'Outcome',
 		name: 'outcome',
 		type: 'options',
+		required: true,
 		default: 'paid',
 		options: [
 			{

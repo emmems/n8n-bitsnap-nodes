@@ -94,6 +94,7 @@ export const webhookProperties: INodeProperties[] = [
 		displayName: 'Events',
 		name: 'events',
 		type: 'multiOptions',
+		required: true,
 		default: [WEBHOOK_EVENT_ALL],
 		options: WEBHOOK_EVENTS,
 		displayOptions: {

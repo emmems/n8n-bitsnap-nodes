@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.8
+
+- Marked Webhook → Events and Checkout → Outcome as required core operation inputs, keeping their existing defaults and parameter paths.
+
 ## 1.0.7
 
 - Moved the optional Form Names or IDs filter into Bitsnap Trigger’s Options collection and updated webhook registration and delivery filtering to read it there, as requested in the n8n verification review.
