@@ -283,7 +283,7 @@ function createHookContext(
 		getNodeWebhookUrl: () => WEBHOOK_URL,
 		getNodeParameter: (name: string) => {
 			if (name === 'events') return options.events ?? ['TRANSACTION_SUCCESS'];
-			if (name === 'formIds') return options.formIds ?? [];
+			if (name === 'options') return { formIds: options.formIds ?? [] };
 			throw new Error(`unexpected parameter ${name}`);
 		},
 		helpers: { httpRequestWithAuthentication },
@@ -675,7 +675,6 @@ function createWebhookContext(args: {
 	headers?: Record<string, string>;
 	query?: Record<string, string>;
 	events?: string[];
-	formIds?: (string | number)[];
 	options?: IDataObject;
 	staticData?: IDataObject;
 }): WebhookFixture {
@@ -703,7 +702,6 @@ function createWebhookContext(args: {
 			args.staticData ?? { webhookId: 'wh_9', signingSecret: WEBHOOK_KEY },
 		getNodeParameter: (name: string) => {
 			if (name === 'events') return args.events ?? [ALL_EVENTS];
-			if (name === 'formIds') return args.formIds ?? [];
 			if (name === 'options') return args.options ?? {};
 			throw new Error(`unexpected parameter ${name}`);
 		},
@@ -747,9 +745,9 @@ describe('webhook()', () => {
 			},
 		});
 		const headers = { 'x-content-signature': computeSignature(JSON.stringify(lead), WEBHOOK_KEY) };
-		const kept = createWebhookContext({ body: lead, headers, formIds: [12, ' 12 ', ''] });
+		const kept = createWebhookContext({ body: lead, headers, options: { formIds: [12, ' 12 ', ''] } });
 		expect((await node.webhook.call(kept.context)).workflowData?.[0][0].json.id).toBe('evt_lead');
-		const skipped = createWebhookContext({ body: lead, headers, formIds: [34] });
+		const skipped = createWebhookContext({ body: lead, headers, options: { formIds: [34] } });
 		expect(await node.webhook.call(skipped.context)).toEqual({});
 	});
 
@@ -882,7 +880,7 @@ describe('BitsnapTrigger description', () => {
 		});
 	});
 
-	it('offers the three options with the documented defaults', () => {
+	it('offers the four options with the documented defaults', () => {
 		const options = description.properties.find((property) => property.name === 'options');
 		const defaults = Object.fromEntries(
 			(options?.options ?? []).map((option) => [
@@ -891,7 +889,9 @@ describe('BitsnapTrigger description', () => {
 			]),
 		);
 
+		expect(description.properties.some((property) => property.name === 'formIds')).toBe(false);
 		expect(defaults).toEqual({
+			formIds: [],
 			verifySignature: true,
 			ignoreTestEvents: false,
 			includeRawBody: false,

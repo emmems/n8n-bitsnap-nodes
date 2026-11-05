@@ -140,7 +140,7 @@ The **Bitsnap Trigger** node starts a workflow for the Bitsnap events you select
 
 Choose **All Events** to receive every event.
 
-Choose **Form Names or IDs** to limit configurator lead events to specific forms. Leave it empty to receive lead events for every form. This filter applies only to lead events; loading the form list needs the `leads:read` scope. A lead is a configurator submission, and lead updates can be delivered more than once for the same lead ID.
+Choose **Options → Form Names or IDs** to limit configurator lead events to specific forms. Leave it empty to receive lead events for every form. This filter applies only to lead events; loading the form list needs the `leads:read` scope. A lead is a configurator submission, and lead updates can be delivered more than once for the same lead ID.
 
 ### Example output
 
