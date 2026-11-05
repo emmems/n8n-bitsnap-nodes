@@ -11,7 +11,7 @@ import type { INodePropertyOptions } from 'n8n-workflow';
 export const ALL_EVENTS = 'ALL';
 
 /** The group of an event in the list of the node. */
-export type BitsnapEventGroup = 'Transactions' | 'Subscriptions' | 'Access' | 'Other';
+export type BitsnapEventGroup = 'Transactions' | 'Subscriptions' | 'Access' | 'Leads' | 'Other';
 
 /** One event of the API, with the text the node shows for it. */
 export interface BitsnapEventDefinition {
@@ -122,6 +122,54 @@ export const BITSNAP_EVENTS: readonly BitsnapEventDefinition[] = [
 		name: 'Access Expired',
 		description: "A customer's access to a product has ended",
 		group: 'Access',
+	},
+	{
+		value: 'CONFIGURATOR_SUBMISSION_CREATED',
+		name: 'New Lead',
+		description: 'A lead (configurator submission) was created',
+		group: 'Leads',
+	},
+	{
+		value: 'CONFIGURATOR_SUBMISSION_UPDATED',
+		name: 'Lead Updated',
+		description: 'A lead was updated; this can happen repeatedly for the same lead',
+		group: 'Leads',
+	},
+	{
+		value: 'CONFIGURATOR_SUBMISSION_STATUS_CHANGED',
+		name: 'Lead Status Changed',
+		description: 'The status of a lead changed',
+		group: 'Leads',
+	},
+	{
+		value: 'CONFIGURATOR_CHECKOUT_STARTED',
+		name: 'Lead Checkout Started',
+		description: 'A lead started checkout',
+		group: 'Leads',
+	},
+	{
+		value: 'CONFIGURATOR_CHECKOUT_PAID',
+		name: 'Lead Checkout Paid',
+		description: 'A lead checkout was paid',
+		group: 'Leads',
+	},
+	{
+		value: 'CONFIGURATOR_CHECKOUT_FAILED',
+		name: 'Lead Checkout Failed',
+		description: 'A lead checkout failed',
+		group: 'Leads',
+	},
+	{
+		value: 'CONFIGURATOR_FORM_PUBLISHED',
+		name: 'Form Published',
+		description: 'A configurator form was published',
+		group: 'Leads',
+	},
+	{
+		value: 'CONFIGURATOR_FORM_ARCHIVED',
+		name: 'Form Archived',
+		description: 'A configurator form was archived',
+		group: 'Leads',
 	},
 	{
 		value: 'CART_RECOVERY',

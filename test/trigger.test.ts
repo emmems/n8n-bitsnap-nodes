@@ -101,15 +101,16 @@ describe('signature', () => {
 });
 
 describe('events', () => {
-	it('lists the 19 events of the server and All Events', () => {
-		expect(BITSNAP_EVENTS).toHaveLength(19);
-		expect(new Set(BITSNAP_EVENTS.map((event) => event.value)).size).toBe(19);
+	it('lists the 27 events of the server and All Events', () => {
+		expect(BITSNAP_EVENTS).toHaveLength(27);
+		expect(new Set(BITSNAP_EVENTS.map((event) => event.value)).size).toBe(27);
 
 		const options = eventOptions();
-		expect(options).toHaveLength(20);
+		expect(options).toHaveLength(28);
 		expect(options[0]).toMatchObject({ name: 'All Events', value: ALL_EVENTS });
 		expect(options.map((option) => option.value)).toContain('PARTNER_COMMISSION_EARNED');
 		expect(options.map((option) => option.value)).toContain('ACCESS_EXPIRES_IN_3_DAYS');
+		expect(options.map((option) => option.value)).toContain('CONFIGURATOR_SUBMISSION_CREATED');
 	});
 
 	it('registers ALL alone when it is selected or nothing is', () => {
@@ -157,6 +158,21 @@ describe('shapeEvent', () => {
 		expect(shapeEvent(test, [ALL_EVENTS], { ignoreTestEvents: true })).toBeNull();
 		expect(shapeEvent(test, [ALL_EVENTS], { ignoreTestEvents: false })).not.toBeNull();
 		expect(shapeEvent(live, [ALL_EVENTS], { ignoreTestEvents: true })).not.toBeNull();
+	});
+
+	it('filters only configurator events by selected form id', () => {
+		const lead = deliveryBody('CONFIGURATOR_SUBMISSION_CREATED', {
+			eventData: {
+				id: 'evt_1',
+				event: 'CONFIGURATOR_SUBMISSION_CREATED',
+				configurator: { form: { id: '12' } },
+			},
+		});
+		expect(shapeEvent(lead, [ALL_EVENTS], { formIds: ['12'] })).not.toBeNull();
+		expect(shapeEvent(lead, [ALL_EVENTS], { formIds: ['34'] })).toBeNull();
+		expect(
+			shapeEvent(deliveryBody('TRANSACTION_SUCCESS'), [ALL_EVENTS], { formIds: ['34'] }),
+		).not.toBeNull();
 	});
 
 	it('adds the raw body only when asked to', () => {
@@ -225,7 +241,12 @@ function fullResponse(payload: unknown, statusCode = 200) {
  */
 function createHookContext(
 	responses: unknown[],
-	options: { staticData?: IDataObject; events?: string[]; workflowName?: string } = {},
+	options: {
+		staticData?: IDataObject;
+		events?: string[];
+		formIds?: (string | number)[];
+		workflowName?: string;
+	} = {},
 ): HookFixture {
 	const calls: RecordedCall[] = [];
 	const queue = [...responses];
@@ -262,6 +283,7 @@ function createHookContext(
 		getNodeWebhookUrl: () => WEBHOOK_URL,
 		getNodeParameter: (name: string) => {
 			if (name === 'events') return options.events ?? ['TRANSACTION_SUCCESS'];
+			if (name === 'formIds') return options.formIds ?? [];
 			throw new Error(`unexpected parameter ${name}`);
 		},
 		helpers: { httpRequestWithAuthentication },
@@ -284,7 +306,7 @@ describe('webhookMethods.checkExists', () => {
 
 	it('is true when the webhook exists and this workflow holds its secret', async () => {
 		const { context, calls } = createHookContext(
-			[{ webhooks: [{ id: 'wh_1', url: WEBHOOK_URL }] }],
+			[{ webhooks: [{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'] }] }],
 			{
 				staticData: { webhookId: 'wh_1', signingSecret: WEBHOOK_KEY },
 			},
@@ -296,13 +318,79 @@ describe('webhookMethods.checkExists', () => {
 
 	it('deletes a webhook whose secret is not stored and reports false', async () => {
 		const { context, calls, staticData } = createHookContext(
-			[{ webhooks: [{ id: 'wh_1', url: WEBHOOK_URL }] }, {}],
+			[{ webhooks: [{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'] }] }, {}],
 			{},
 		);
 
 		expect(await hooks.checkExists.call(context)).toBe(false);
 		expect(calls.map((call) => call.method)).toEqual(['ListWebhooks', 'DeleteWebhook']);
 		expect(calls[1].body).toEqual({ id: 'wh_1' });
+		expect(staticData).toEqual({});
+	});
+
+	it('preserves legacy registration and backfills snapshots from matching API selections', async () => {
+		const legacy: IDataObject = { webhookId: 'wh_1', signingSecret: WEBHOOK_KEY };
+		const { context, calls, staticData } = createHookContext(
+			[
+				{
+					webhooks: [
+						{
+							id: 'wh_1',
+							url: WEBHOOK_URL,
+							events: ['TRANSACTION_SUCCESS'],
+							formIds: ['34', '12', '12'],
+						},
+					],
+				},
+			],
+			{ staticData: legacy, formIds: [12, ' 34 ', '', '12'] },
+		);
+		expect(legacy).not.toHaveProperty('registeredEvents');
+		expect(legacy).not.toHaveProperty('registeredFormIds');
+		expect(await hooks.checkExists.call(context)).toBe(true);
+		expect(calls.map((call) => call.method)).toEqual(['ListWebhooks']);
+		expect(staticData).toEqual({
+			webhookId: 'wh_1',
+			signingSecret: WEBHOOK_KEY,
+			registeredEvents: '["TRANSACTION_SUCCESS"]',
+			registeredFormIds: '["12","34"]',
+		});
+	});
+
+	it('recreates a legacy registration when the API selection differs', async () => {
+		const { context, calls, staticData } = createHookContext(
+			[
+				{
+					webhooks: [
+						{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'], formIds: ['34'] },
+					],
+				},
+				{},
+			],
+			{ staticData: { webhookId: 'wh_1', signingSecret: WEBHOOK_KEY }, formIds: [12] },
+		);
+		expect(await hooks.checkExists.call(context)).toBe(false);
+		expect(calls.map((call) => call.method)).toEqual(['ListWebhooks', 'DeleteWebhook']);
+		expect(staticData).toEqual({});
+	});
+
+	it('recreates the webhook when its event or form selection changed', async () => {
+		const { context, calls, staticData } = createHookContext(
+			[{ webhooks: [{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'] }] }, {}],
+			{
+				staticData: {
+					webhookId: 'wh_1',
+					signingSecret: WEBHOOK_KEY,
+					registeredEvents: '["TRANSACTION_SUCCESS"]',
+					registeredFormIds: '[]',
+				},
+				events: ['CONFIGURATOR_SUBMISSION_CREATED'],
+				formIds: ['12'],
+			},
+		);
+
+		expect(await hooks.checkExists.call(context)).toBe(false);
+		expect(calls.map((call) => call.method)).toEqual(['ListWebhooks', 'DeleteWebhook']);
 		expect(staticData).toEqual({});
 	});
 
@@ -324,7 +412,7 @@ describe('webhookMethods.checkExists', () => {
 				{
 					webhooks: [
 						{ id: 'wh_old', url: WEBHOOK_URL },
-						{ id: 'wh_1', url: WEBHOOK_URL },
+						{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'] },
 					],
 				},
 				{},
@@ -335,7 +423,7 @@ describe('webhookMethods.checkExists', () => {
 		expect(await hooks.checkExists.call(context)).toBe(true);
 		expect(calls.map((call) => call.method)).toEqual(['ListWebhooks', 'DeleteWebhook']);
 		expect(calls[1].body).toEqual({ id: 'wh_old' });
-		expect(staticData).toEqual({ webhookId: 'wh_1', signingSecret: WEBHOOK_KEY });
+		expect(staticData).toMatchObject({ webhookId: 'wh_1', signingSecret: WEBHOOK_KEY });
 	});
 
 	it('keeps the stored webhook and deletes the copy listed after it', async () => {
@@ -343,7 +431,7 @@ describe('webhookMethods.checkExists', () => {
 			[
 				{
 					webhooks: [
-						{ id: 'wh_1', url: WEBHOOK_URL },
+						{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'] },
 						{ id: 'wh_dup', url: WEBHOOK_URL },
 					],
 				},
@@ -355,7 +443,7 @@ describe('webhookMethods.checkExists', () => {
 		expect(await hooks.checkExists.call(context)).toBe(true);
 		expect(calls.map((call) => call.method)).toEqual(['ListWebhooks', 'DeleteWebhook']);
 		expect(calls[1].body).toEqual({ id: 'wh_dup' });
-		expect(staticData).toEqual({ webhookId: 'wh_1', signingSecret: WEBHOOK_KEY });
+		expect(staticData).toMatchObject({ webhookId: 'wh_1', signingSecret: WEBHOOK_KEY });
 	});
 
 	it('deletes every copy and clears the secret when none is the stored one', async () => {
@@ -410,7 +498,7 @@ describe('webhookMethods.checkExists', () => {
 				{
 					webhooks: [
 						{ id: 'wh_old', url: WEBHOOK_URL },
-						{ id: 'wh_1', url: WEBHOOK_URL },
+						{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'] },
 					],
 				},
 				apiError(404, 'webhook_not_found', 'No webhook endpoint with this id.'),
@@ -424,7 +512,7 @@ describe('webhookMethods.checkExists', () => {
 
 	it('ignores webhook_not_found while deleting a webhook without a secret', async () => {
 		const { context, calls } = createHookContext([
-			{ webhooks: [{ id: 'wh_1', url: WEBHOOK_URL }] },
+			{ webhooks: [{ id: 'wh_1', url: WEBHOOK_URL, events: ['TRANSACTION_SUCCESS'] }] },
 			apiError(404, 'webhook_not_found', 'No webhook endpoint with this id.'),
 		]);
 
@@ -454,7 +542,12 @@ describe('webhookMethods.create', () => {
 			events: ['TRANSACTION_SUCCESS'],
 		});
 		expect(typeof calls[0].headers['Idempotency-Key']).toBe('string');
-		expect(staticData).toEqual({ webhookId: 'wh_9', signingSecret: WEBHOOK_KEY });
+		expect(staticData).toMatchObject({
+			webhookId: 'wh_9',
+			signingSecret: WEBHOOK_KEY,
+			registeredEvents: '["TRANSACTION_SUCCESS"]',
+			registeredFormIds: '[]',
+		});
 	});
 
 	it('registers ALL when All Events is selected next to other events', async () => {
@@ -466,6 +559,20 @@ describe('webhookMethods.create', () => {
 		await hooks.create.call(context);
 
 		expect(calls[0].body.events).toEqual(['ALL']);
+	});
+
+	it('sends selected form ids when registering', async () => {
+		const { context, calls, staticData } = createHookContext(
+			[{ webhook: { id: 'wh_9' }, signingSecret: WEBHOOK_KEY }],
+			{ events: ['CONFIGURATOR_SUBMISSION_CREATED'], formIds: [12, ' 34 ', '', '12'] },
+		);
+
+		await hooks.create.call(context);
+		expect(calls[0].body).toMatchObject({
+			events: ['CONFIGURATOR_SUBMISSION_CREATED'],
+			formIds: ['12', '34'],
+		});
+		expect(staticData.registeredFormIds).toBe('["12","34"]');
 	});
 
 	it('uses a new idempotency key for every registration', async () => {
@@ -568,6 +675,7 @@ function createWebhookContext(args: {
 	headers?: Record<string, string>;
 	query?: Record<string, string>;
 	events?: string[];
+	formIds?: (string | number)[];
 	options?: IDataObject;
 	staticData?: IDataObject;
 }): WebhookFixture {
@@ -595,6 +703,7 @@ function createWebhookContext(args: {
 			args.staticData ?? { webhookId: 'wh_9', signingSecret: WEBHOOK_KEY },
 		getNodeParameter: (name: string) => {
 			if (name === 'events') return args.events ?? [ALL_EVENTS];
+			if (name === 'formIds') return args.formIds ?? [];
 			if (name === 'options') return args.options ?? {};
 			throw new Error(`unexpected parameter ${name}`);
 		},
@@ -627,6 +736,21 @@ describe('webhook()', () => {
 			projectId: 'proj_1',
 			id: 'evt_1',
 		});
+	});
+
+	it('emits a signed lead delivery for a numerically selected form only', async () => {
+		const lead = deliveryBody('CONFIGURATOR_SUBMISSION_CREATED', {
+			eventData: {
+				id: 'evt_lead',
+				event: 'CONFIGURATOR_SUBMISSION_CREATED',
+				configurator: { form: { id: '12' } },
+			},
+		});
+		const headers = { 'x-content-signature': computeSignature(JSON.stringify(lead), WEBHOOK_KEY) };
+		const kept = createWebhookContext({ body: lead, headers, formIds: [12, ' 12 ', ''] });
+		expect((await node.webhook.call(kept.context)).workflowData?.[0][0].json.id).toBe('evt_lead');
+		const skipped = createWebhookContext({ body: lead, headers, formIds: [34] });
+		expect(await node.webhook.call(skipped.context)).toEqual({});
 	});
 
 	it('accepts the signature from the sig query parameter', async () => {

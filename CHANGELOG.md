@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6
+
+- Added configurator lead events and an optional form filter to Bitsnap Trigger.
+
 ## 1.0.5
 
 - Trimmed the Bitsnap Trigger notice to its behavioral warning and moved setup information to the API Key description and README, as requested in the n8n verification review. No functional changes.

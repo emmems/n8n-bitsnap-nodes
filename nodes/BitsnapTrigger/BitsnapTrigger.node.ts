@@ -3,8 +3,10 @@ import { randomUUID } from 'node:crypto';
 import type {
 	IDataObject,
 	IHookFunctions,
+	ILoadOptionsFunctions,
 	INodeType,
 	INodeTypeDescription,
+	INodePropertyOptions,
 	IWebhookFunctions,
 	IWebhookResponseData,
 	JsonObject,
@@ -13,7 +15,7 @@ import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workf
 
 import { bitsnapRpc } from '../Bitsnap/transport';
 import { eventOptions, eventsToRegister } from './events';
-import { shapeEvent } from './shape';
+import { normalizeFormIds, shapeEvent } from './shape';
 import { pickProvidedSignature, verifySignature } from './signature';
 
 /** Longest webhook name the API accepts. */
@@ -23,12 +25,16 @@ const WEBHOOK_NAME_MAX_LENGTH = 100;
 interface BitsnapWebhook {
 	id?: string;
 	url?: string;
+	events?: string[];
+	formIds?: string[];
 }
 
 /** What the trigger keeps between activations of the workflow. */
 interface StoredWebhook {
 	webhookId?: string;
 	signingSecret?: string;
+	registeredEvents?: string;
+	registeredFormIds?: string;
 }
 
 /** The options collection of the trigger. */
@@ -36,6 +42,12 @@ interface TriggerOptions {
 	verifySignature?: boolean;
 	ignoreTestEvents?: boolean;
 	includeRawBody?: boolean;
+}
+
+interface FormSummary {
+	id: string;
+	name: string;
+	slug: string;
 }
 
 /** True when the API says the webhook is gone: that is what a delete wants. */
@@ -71,6 +83,12 @@ function clearStoredWebhook(context: IHookFunctions): void {
 	const staticData = context.getWorkflowStaticData('node') as StoredWebhook;
 	delete staticData.webhookId;
 	delete staticData.signingSecret;
+	delete staticData.registeredEvents;
+	delete staticData.registeredFormIds;
+}
+
+function normalizedSelection(values: readonly string[]): string {
+	return JSON.stringify([...new Set(values)].sort());
 }
 
 export class BitsnapTrigger implements INodeType {
@@ -119,6 +137,15 @@ export class BitsnapTrigger implements INodeType {
 				options: eventOptions(),
 			},
 			{
+				displayName: 'Form Names or IDs',
+				name: 'formIds',
+				type: 'multiOptions',
+				default: [],
+				typeOptions: { loadOptionsMethod: 'getForms' },
+				description:
+					'Applies only to lead events; loading forms requires the "leads:read" scope. Leave empty to receive lead events for every form. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
@@ -153,6 +180,21 @@ export class BitsnapTrigger implements INodeType {
 		],
 	};
 
+	methods = {
+		loadOptions: {
+			async getForms(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const response = (await bitsnapRpc.call(this, 'LeadsService', 'ListForms', {})) as {
+					forms?: FormSummary[];
+				};
+				return (response.forms ?? []).map((form) => ({
+					name: form.name || form.slug || form.id,
+					value: form.id,
+					description: form.slug,
+				}));
+			},
+		},
+	};
+
 	webhookMethods = {
 		default: {
 			async checkExists(this: IHookFunctions): Promise<boolean> {
@@ -171,6 +213,12 @@ export class BitsnapTrigger implements INodeType {
 
 				const stored = this.getWorkflowStaticData('node') as StoredWebhook;
 				const holdsSecret = Boolean(stored.signingSecret && stored.webhookId);
+				const selectedEvents = this.getNodeParameter('events', ['TRANSACTION_SUCCESS']) as string[];
+				const selectedFormIds = normalizeFormIds(
+					this.getNodeParameter('formIds', []) as (string | number)[],
+				);
+				const registeredEvents = normalizedSelection(eventsToRegister(selectedEvents));
+				const registeredFormIds = normalizedSelection(selectedFormIds);
 
 				// Only the webhook whose secret this workflow holds can verify a
 				// delivery. Every other copy would deliver each event a second time
@@ -178,8 +226,17 @@ export class BitsnapTrigger implements INodeType {
 				// gone is fine: `deleteWebhook` ignores `webhook_not_found`.
 				let keptStored = false;
 				for (const webhook of matches) {
-					if (holdsSecret && !keptStored && webhook.id === stored.webhookId) {
+					// Older workflows have no snapshots. Compare the API registration
+					// before deciding to rotate a webhook whose secret we still hold.
+					const selectionsMatch =
+						(stored.registeredEvents ??
+							normalizedSelection(eventsToRegister(webhook.events ?? []))) === registeredEvents &&
+						(stored.registeredFormIds ??
+							normalizedSelection(normalizeFormIds(webhook.formIds ?? []))) === registeredFormIds;
+					if (holdsSecret && selectionsMatch && !keptStored && webhook.id === stored.webhookId) {
 						keptStored = true;
+						stored.registeredEvents = registeredEvents;
+						stored.registeredFormIds = registeredFormIds;
 						continue;
 					}
 					if (webhook.id) {
@@ -200,10 +257,14 @@ export class BitsnapTrigger implements INodeType {
 				if (webhookUrl === undefined) return false;
 
 				const selected = this.getNodeParameter('events', ['TRANSACTION_SUCCESS']) as string[];
+				const formIds = normalizeFormIds(
+					this.getNodeParameter('formIds', []) as (string | number)[],
+				);
 				const body: IDataObject = {
 					name: webhookName(this.getWorkflow().name),
 					url: webhookUrl,
 					events: eventsToRegister(selected),
+					...(formIds.length > 0 ? { formIds } : {}),
 				};
 
 				// A fresh key per attempt: a key derived from the workflow would
@@ -241,6 +302,8 @@ export class BitsnapTrigger implements INodeType {
 				const stored = this.getWorkflowStaticData('node') as StoredWebhook;
 				stored.webhookId = createdId;
 				stored.signingSecret = signingSecret;
+				stored.registeredEvents = normalizedSelection(eventsToRegister(selected));
+				stored.registeredFormIds = normalizedSelection(formIds);
 				return true;
 			},
 
@@ -290,7 +353,9 @@ export class BitsnapTrigger implements INodeType {
 		}
 
 		const selected = this.getNodeParameter('events', ['TRANSACTION_SUCCESS']) as string[];
+		const formIds = normalizeFormIds(this.getNodeParameter('formIds', []) as (string | number)[]);
 		const item = shapeEvent(req.body, selected, {
+			formIds,
 			ignoreTestEvents: options.ignoreTestEvents ?? false,
 			includeRawBody: options.includeRawBody ?? false,
 			rawBody: typeof rawBody === 'string' ? rawBody : rawBody.toString('utf8'),

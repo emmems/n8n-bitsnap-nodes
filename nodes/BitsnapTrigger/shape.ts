@@ -13,10 +13,17 @@ import { ALL_EVENTS } from './events';
 export interface ShapeOptions {
 	/** Skip the events of the test environment. */
 	ignoreTestEvents?: boolean;
+	/** Only emit configurator events for these form ids when any are selected. */
+	formIds?: readonly (string | number)[];
 	/** Add the body as received under `rawBody`. */
 	includeRawBody?: boolean;
 	/** The body as received, added when `includeRawBody` is set. */
 	rawBody?: string;
+}
+
+/** Canonical API form IDs, including numeric values supplied by expressions. */
+export function normalizeFormIds(values: readonly (string | number)[]): string[] {
+	return [...new Set(values.map((value) => String(value).trim()).filter((value) => value !== ''))];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +64,14 @@ export function shapeEvent(
 
 	const environment = environmentOf(body);
 	if (options.ignoreTestEvents && environment === 'TEST') return null;
+	const formIds = normalizeFormIds(options.formIds ?? []);
+	if (event.startsWith('CONFIGURATOR_') && formIds.length > 0) {
+		const eventData = body.eventData;
+		const configurator =
+			isRecord(eventData) && isRecord(eventData.configurator) ? eventData.configurator : undefined;
+		const form = configurator && isRecord(configurator.form) ? configurator.form : undefined;
+		if (typeof form?.id !== 'string' || !formIds.includes(form.id)) return null;
+	}
 
 	const item: IDataObject = {
 		event,

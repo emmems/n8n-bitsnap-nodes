@@ -72,6 +72,7 @@ Each key has a set of scopes. Enable the scopes you need when you create the key
 | `checkout:create` | No (opt-in) | Checkout → Create Link, Settle Test Payment |
 | `webhooks:read` | No (opt-in) | Webhook → Get Many |
 | `webhooks:write` | No (opt-in) | Webhook → Create, Delete; Bitsnap Trigger |
+| `leads:read` | No (opt-in) | Bitsnap Trigger form picker |
 
 Write operations also require the key's **write switch** to be turned on in the dashboard. Without it, writes fail with a "writes disabled" error even if the scope is granted.
 
@@ -125,7 +126,7 @@ The **Bitsnap Trigger** node starts a workflow for the Bitsnap events you select
 - When the workflow is **activated**, the node registers a webhook in Bitsnap (it appears in your dashboard as `n8n: <workflow name>`).
 - When the workflow is **deactivated**, the webhook is removed.
 - Every delivery is verified with the signing secret, using an HMAC-SHA512 of the raw request body compared to the `X-Content-Signature` header. Requests with an invalid signature are rejected with `401`.
-- The API key needs the `webhooks:read` and `webhooks:write` scopes and its write switch on. Test keys receive test events; live keys receive live events.
+- The API key needs the `webhooks:read` and `webhooks:write` scopes and its write switch on. The form picker also needs `leads:read`. Test keys receive test events; live keys receive live events.
 
 ### Events
 
@@ -134,9 +135,12 @@ The **Bitsnap Trigger** node starts a workflow for the Bitsnap events you select
 | Transactions | `TRANSACTION_CREATED`, `TRANSACTION_SUCCESS`, `TRANSACTION_FAILURE`, `TRANSACTION_EXPIRED`, `TRANSACTION_CHARGE` |
 | Subscriptions | `SUBSCRIPTION_CREATED`, `SUBSCRIPTION_PAUSED`, `SUBSCRIPTION_RESUMED`, `SUBSCRIPTION_UPDATED`, `SUBSCRIPTION_DELETED`, `SUBSCRIPTION_CHARGE_PAID`, `SUBSCRIPTION_CHARGE_FAILED`, `SUBSCRIPTION_PAST_DUE`, `SUBSCRIPTION_CANCELED` |
 | Access | `ACCESS_EXPIRES_IN_3_DAYS`, `ACCESS_EXPIRED` |
+| Leads | `CONFIGURATOR_SUBMISSION_CREATED`, `CONFIGURATOR_SUBMISSION_UPDATED`, `CONFIGURATOR_SUBMISSION_STATUS_CHANGED`, `CONFIGURATOR_CHECKOUT_STARTED`, `CONFIGURATOR_CHECKOUT_PAID`, `CONFIGURATOR_CHECKOUT_FAILED`, `CONFIGURATOR_FORM_PUBLISHED`, `CONFIGURATOR_FORM_ARCHIVED` |
 | Other | `CART_RECOVERY`, `TESTIMONIAL_FULFILLED`, `PARTNER_COMMISSION_EARNED` |
 
 Choose **All Events** to receive every event.
+
+Choose **Form Names or IDs** to limit configurator lead events to specific forms. Leave it empty to receive lead events for every form. This filter applies only to lead events; loading the form list needs the `leads:read` scope. A lead is a configurator submission, and lead updates can be delivered more than once for the same lead ID.
 
 ### Example output
 
