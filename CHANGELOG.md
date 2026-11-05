@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5
+
+- Trimmed the Bitsnap Trigger notice to its behavioral warning and moved setup information to the API Key description and README, as requested in the n8n verification review. No functional changes.
+
 ## 1.0.4
 
 - Moved the information from the notice banners in the Bitsnap node into the descriptions it belongs to, as asked in the n8n verification review: the Create Link and Settle Test Payment operations (Checkout), the Percent Off field and the Update operation (Coupon), the Update operation (Coupon Code), and the Create operation and the resource itself (Webhook). The Resource dropdown now shows each resource's description. No functional changes.

@@ -104,7 +104,7 @@ export class BitsnapTrigger implements INodeType {
 		properties: [
 			{
 				displayName:
-					'The API key needs the "webhooks:read" and "webhooks:write" scopes and its write switch on. A test key receives test events, a live key live events. Events can arrive more than once and out of order, so deduplicate on the ID of the event',
+					'Events can arrive more than once and out of order, so deduplicate on the ID of the event',
 				name: 'notice',
 				type: 'notice',
 				default: '',

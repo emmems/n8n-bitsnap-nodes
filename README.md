@@ -125,7 +125,7 @@ The **Bitsnap Trigger** node starts a workflow for the Bitsnap events you select
 - When the workflow is **activated**, the node registers a webhook in Bitsnap (it appears in your dashboard as `n8n: <workflow name>`).
 - When the workflow is **deactivated**, the webhook is removed.
 - Every delivery is verified with the signing secret, using an HMAC-SHA512 of the raw request body compared to the `X-Content-Signature` header. Requests with an invalid signature are rejected with `401`.
-- The API key needs the `webhooks:read` and `webhooks:write` scopes.
+- The API key needs the `webhooks:read` and `webhooks:write` scopes and its write switch on. Test keys receive test events; live keys receive live events.
 
 ### Events
 

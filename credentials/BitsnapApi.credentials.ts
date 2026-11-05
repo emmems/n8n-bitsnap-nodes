@@ -22,6 +22,8 @@ export class BitsnapApi implements ICredentialType {
 			typeOptions: { password: true },
 			required: true,
 			default: '',
+			description:
+				'Test keys (bs_test_…) use test data and receive test events; live keys (bs_live_…) use live data and receive live events. Enable the scopes required by your operations. The Bitsnap Trigger needs "webhooks:read" and "webhooks:write" scopes, and write operations and the trigger need the key’s write switch on.',
 			hint: 'API key from the Bitsnap dashboard (Settings → Developer). Starts with bs_test_ or bs_live_.',
 		},
 		{
