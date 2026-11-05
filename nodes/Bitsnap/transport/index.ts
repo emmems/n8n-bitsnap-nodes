@@ -27,6 +27,8 @@ import { NodeApiError, NodeOperationError, sleep } from 'n8n-workflow';
 /** Name of the credential the nodes authenticate with. */
 export const BITSNAP_CREDENTIAL_NAME = 'bitsnapApi';
 
+type BitsnapAuthentication = 'apiKey' | 'oAuth2';
+
 /** Host used when the credential carries no host. */
 export const BITSNAP_DEFAULT_HOST = 'https://bitsnap.pl';
 
@@ -413,38 +415,69 @@ function parseRetryAfter(headers: unknown, metadata: Record<string, string>): nu
 	return Number(trimmed);
 }
 
+/** Match API validation fields to the labels users configure in n8n. */
+const PARAMETER_LABELS: Record<string, string> = {
+	percentOff: 'Percent Off',
+	url: 'URL',
+	productId: 'Product',
+	couponId: 'Coupon',
+	couponCodeId: 'Coupon Code',
+	orderId: 'Order',
+	customerEmail: 'Customer Email',
+	successUrl: 'Success URL',
+	cancelUrl: 'Cancel URL',
+	expiresAt: 'Expires At',
+	clientReferenceId: 'Client Reference ID',
+};
+
 /** What the user can do about an error. */
 function errorHint(
 	reason: string | undefined,
 	metadata: Record<string, string>,
+	authentication: BitsnapAuthentication,
 ): string | undefined {
+	const oauth = authentication === 'oAuth2';
 	switch (reason) {
 		case 'missing_scope': {
 			const scope = metadata.scope;
+			if (oauth)
+				return `Select ${scope ? `the "${scope}" scope` : 'the required scope'} in the OAuth credential and reconnect to approve it`;
 			return scope
 				? `Enable the "${scope}" scope of this API key in the Bitsnap dashboard (Settings → Developer)`
 				: 'Enable the scope this call needs in the Bitsnap dashboard (Settings → Developer)';
 		}
 
 		case 'writes_disabled':
+			if (oauth)
+				return 'OAuth writes are authorized by consent scopes. Check Account → Get and reconnect with the required write scope; OAuth grants do not use an API-key write switch';
 			return 'Turn on the write switch of this API key in the Bitsnap dashboard (Settings → Developer)';
 
 		case 'daily_write_limit':
+			if (oauth)
+				return 'The credential reached its daily write budget. Wait until 00:00 UTC or ask the owner to check its limits';
 			return 'This API key used up its daily write budget, which resets at 00:00 UTC';
 
 		case 'pii_scope_required':
+			if (oauth)
+				return 'Select Customers: Personal Data in the OAuth credential and reconnect to approve customers:pii, or remove the order search filter';
 			return 'Enable the "customers:pii" scope of this API key in the Bitsnap dashboard (Settings → Developer) to read customer data';
 
 		case 'test_mode_only':
+			if (oauth)
+				return 'This call needs an OAuth grant for the test environment. Select Test and reconnect, then check the granted environment with Account → Get';
 			return 'This call exists only in test mode, so it needs a test API key (bs_test_…)';
 
 		case 'rate_limited':
-			return 'Too many requests for this API key, wait a moment and try again';
+			return 'Too many requests for this project or credential, wait a moment and try again';
 
 		case 'invalid_credentials':
+			if (oauth)
+				return 'The OAuth grant is expired, revoked or invalid. Reconnect the OAuth credential and approve access again';
 			return 'The API key is unknown, revoked or expired, so check the credential of this node';
 
 		case 'missing_credentials':
+			if (oauth)
+				return 'No OAuth access token was sent. Connect the OAuth credential and select it on this node';
 			return 'No API key was sent, so check the credential of this node';
 
 		case 'idempotency_key_reused':
@@ -456,8 +489,38 @@ function errorHint(
 		case 'revision_conflict':
 			return 'The product changed since it was read, so read it again and retry';
 
+		case 'invalid_request':
+			return metadata.field
+				? `Check '${PARAMETER_LABELS[metadata.field] ?? metadata.field}' (${metadata.field}) and correct its value before retrying`
+				: 'Check the required fields and their values before retrying';
+		case 'invalid_cursor':
+			return 'Use the nextCursor returned by the previous page unchanged, or restart the list without a cursor';
+		case 'invalid_idempotency_key':
+			return 'Use an idempotency key of 1 to 255 printable ASCII characters';
+		case 'product_not_found':
+			return 'List products in the connected project and use an ID from that list';
+		case 'order_not_found':
+			return 'List orders in the connected project and environment, then use an ID from that list. Check Account → Get for the granted environment';
+		case 'coupon_not_found':
+		case 'coupon_code_not_found':
+			return 'List coupons in the connected project and use the coupon or coupon-code ID from that list';
+		case 'webhook_not_found':
+			return 'List webhooks in the connected project and environment and use an ID from that list';
+		case 'checkout_unavailable':
+			return 'Ask the shop owner to finish the payment gateway and shipping setup in Bitsnap';
+		case 'product_not_purchasable':
+			return 'Check that each product is published and in stock before creating a checkout';
+		case 'discount_not_allowed':
+			return `Use a percentage discount${metadata.maximum ? ` no greater than ${metadata.maximum}` : ' within the credential’s maximum'}. Fixed-amount coupons must be created by the owner in the dashboard`;
+		case 'order_not_settleable':
+			return 'Create a new test checkout using the Bitsnap test gateway. Cancelled, expired and live orders cannot be settled as test payments';
+		case 'order_not_paid':
+			return 'The order must be paid before it can be refunded. Read the order and check its payment status';
+		case 'service_unavailable':
+		case 'internal':
+			return 'Retry later with backoff and the same idempotency key and body for writes. If the problem persists, report the request ID to Bitsnap support';
 		default:
-			return undefined;
+			return 'Check the API message and request fields. If the problem persists, report the request ID to Bitsnap support';
 	}
 }
 
@@ -473,6 +536,7 @@ export function parseBitsnapError(
 	statusCode: number,
 	body: unknown,
 	headers?: unknown,
+	authentication: BitsnapAuthentication = 'apiKey',
 ): BitsnapErrorInfo {
 	const payload = isRecord(body) ? body : undefined;
 	const details = payload && Array.isArray(payload.details) ? payload.details : [];
@@ -501,7 +565,7 @@ export function parseBitsnapError(
 	const code = payload && typeof payload.code === 'string' ? payload.code : undefined;
 	const requestId = readHeader(headers, 'x-request-id');
 	const retryAfter = parseRetryAfter(headers, metadata);
-	const hint = errorHint(reason, metadata);
+	const hint = errorHint(reason, metadata, authentication);
 
 	const text = message === '' ? `The Bitsnap API answered with status ${statusCode}` : message;
 	const fullMessage = reason ? `[${reason}] ${text}` : text;
@@ -603,7 +667,8 @@ function unknownRequestError(
 		{ message },
 		{
 			message,
-			description: 'The Bitsnap API could not be reached',
+			description:
+				'The Bitsnap API could not be reached or its response was lost. Check the credential’s Host and connectivity. A write may already have completed; check its result and retry with the same idempotency key and body',
 			itemIndex,
 		},
 	);
@@ -624,7 +689,12 @@ export async function bitsnapRpc<T>(
 	opts?: BitsnapRpcOptions,
 ): Promise<T> {
 	const context = asBitsnapContext(this);
-	const credentials = await context.getCredentials(BITSNAP_CREDENTIAL_NAME);
+	// Authentication is a literal selector. Inspect stored parameters so older nodes
+	// and hook/loader fixtures without getNodeParameter keep API-key authentication.
+	const authentication =
+		context.getNode().parameters?.authentication === 'oAuth2' ? 'oAuth2' : 'apiKey';
+	const credentialName = authentication === 'oAuth2' ? 'bitsnapOAuth2Api' : BITSNAP_CREDENTIAL_NAME;
+	const credentials = await context.getCredentials(credentialName);
 	const host = normalizeHost(typeof credentials.host === 'string' ? credentials.host : undefined);
 	const url = `${host}${BITSNAP_API_PATH}/${BITSNAP_SERVICE_PREFIX}.${service}/${method}`;
 
@@ -648,14 +718,15 @@ export async function bitsnapRpc<T>(
 		headers,
 		json: true,
 		returnFullResponse: true,
-		ignoreHttpStatusErrors: true,
+		// OAuth must throw a 401 inside n8n's helper so it can refresh once and retry.
+		ignoreHttpStatusErrors: authentication !== 'oAuth2',
 	};
 
 	const send = async (): Promise<BitsnapResponse> => {
 		try {
 			const result = await context.helpers.httpRequestWithAuthentication.call(
 				context,
-				BITSNAP_CREDENTIAL_NAME,
+				credentialName,
 				requestOptions,
 			);
 			return normalizeResponse(result);
@@ -669,7 +740,7 @@ export async function bitsnapRpc<T>(
 	let response = await send();
 	let info =
 		response.statusCode >= 400
-			? parseBitsnapError(response.statusCode, response.data, response.headers)
+			? parseBitsnapError(response.statusCode, response.data, response.headers, authentication)
 			: undefined;
 
 	// Only a short rate limit is worth waiting for. A spent daily write budget
@@ -686,7 +757,7 @@ export async function bitsnapRpc<T>(
 		response = await send();
 		info =
 			response.statusCode >= 400
-				? parseBitsnapError(response.statusCode, response.data, response.headers)
+				? parseBitsnapError(response.statusCode, response.data, response.headers, authentication)
 				: undefined;
 	}
 

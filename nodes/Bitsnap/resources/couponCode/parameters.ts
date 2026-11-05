@@ -22,21 +22,21 @@ export const couponCodeProperties: INodeProperties[] = [
 			{
 				name: 'Create',
 				value: 'create',
-				action: 'Create a coupon code',
-				description: 'Add a code buyers type at checkout to a coupon',
+				action: 'Create coupon code',
+				description: 'Create a coupon code buyers enter at checkout',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				action: 'Delete a coupon code',
-				description: 'Delete a code of a coupon',
+				action: 'Delete coupon code',
+				description: 'Delete a coupon code',
 			},
 			{
 				name: 'Update',
 				value: 'update',
-				action: 'Update a coupon code',
+				action: 'Update coupon code',
 				description:
-					'Replace the settings of a code. A redemption limit, a minimum order amount or an expiry left empty is removed.',
+					'Replace the settings of a coupon code. A redemption limit, a minimum order amount or an expiry left empty is removed.',
 			},
 		],
 		default: 'create',
@@ -81,10 +81,36 @@ export const couponCodeProperties: INodeProperties[] = [
 			show: {
 				resource: ['couponCode'],
 				operation: ['update', 'delete'],
+				'@version': [1],
 			},
 		},
 		description:
-			'ID of the code, found in the "codes" of Coupon → Get Many or in the output of Coupon Code → Create',
+			"ID of the code, found in the 'codes' of 'Coupon → Get Many' or in the output of 'Coupon Code → Create'",
+	},
+	{
+		displayName: 'Coupon Code',
+		name: 'couponCodeId',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: { searchListMethod: 'searchCouponCodes', searchable: true },
+			},
+			{ displayName: 'ID', name: 'id', type: 'string' },
+		],
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['couponCode'],
+				operation: ['update', 'delete'],
+				'@version': [{ _cnd: { gte: 1.1 } }],
+			},
+		},
+		description:
+			"ID of the code, found in the 'codes' of 'Coupon → Get Many' or in the output of 'Coupon Code → Create'",
 	},
 	{
 		displayName: 'Code',
@@ -92,7 +118,7 @@ export const couponCodeProperties: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		required: true,
-		placeholder: 'SPRING20',
+		placeholder: 'e.g. SPRING20',
 		displayOptions: {
 			show: {
 				resource: ['couponCode'],
@@ -121,7 +147,7 @@ export const couponCodeProperties: INodeProperties[] = [
 				type: 'boolean',
 				default: false,
 				description:
-					'Whether the Minimum Order Amount is already in minor units (4990 for 49.90) and is sent as is. Turn it on to feed back the "minimumOrderAmountMinor" of Coupon → Get Many.',
+					"Whether the 'Minimum Order Amount' is already in minor units (4990 for 49.90) and is sent as is. Turn it on to feed back the 'minimumOrderAmountMinor' of 'Coupon → Get Many'.",
 			},
 			{
 				displayName: 'Expires At',
@@ -146,7 +172,7 @@ export const couponCodeProperties: INodeProperties[] = [
 				default: 0,
 				typeOptions: { minValue: 0, numberPrecision: 2 },
 				description:
-					'The smallest order total the code applies to, as a decimal amount in the currency of the order (49.90), or in minor units (4990) when Amounts in Minor Units is on. Any order when not set.',
+					"The smallest order total the code applies to, as a decimal amount in the currency of the order (49.90), or in minor units (4990) when 'Amounts in Minor Units' is on. Any order when not set.",
 			},
 		],
 	},

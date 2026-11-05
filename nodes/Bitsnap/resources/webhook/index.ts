@@ -96,12 +96,15 @@ async function getManyWebhooks(
 
 /** Registers a webhook endpoint. The answer carries its signing secret. */
 async function createWebhook(context: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
-	const events = context.getNodeParameter('events', itemIndex, []);
+	const fields = objectParam(context, 'additionalFields', itemIndex);
+	const events = Object.prototype.hasOwnProperty.call(fields, 'events')
+		? fields.events
+		: context.getNodeParameter('events', itemIndex, ['ALL']);
 
 	const body = build(context, itemIndex, () =>
 		buildCreateWebhookBody({
 			url: textOf(context.getNodeParameter('url', itemIndex, '')),
-			name: textOf(objectParam(context, 'additionalFields', itemIndex).name),
+			name: textOf(fields.name),
 			events: Array.isArray(events)
 				? events.filter((event): event is string => typeof event === 'string')
 				: [],
@@ -132,7 +135,9 @@ async function deleteWebhook(context: IExecuteFunctions, itemIndex: number): Pro
 	)) as IDataObject;
 
 	// The API answers with an empty message, so the item says what happened.
-	return { deleted: true, id: body.id, ...response };
+	return context.getNode().typeVersion >= 1.1
+		? { deleted: true }
+		: { ...response, id: body.id, deleted: true };
 }
 
 export const webhookResource: BitsnapResource = {

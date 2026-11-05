@@ -7,6 +7,7 @@
 import type { INodeProperties, INodePropertyOptions } from 'n8n-workflow';
 
 import { ORDER_STATUSES } from './body';
+import { ORDER_OUTPUT_FIELDS } from './output';
 
 /** The statuses of an order, as a filter. */
 const statusOptions: INodePropertyOptions[] = ORDER_STATUSES.map((status) => ({
@@ -30,7 +31,7 @@ export const orderProperties: INodeProperties[] = [
 			{
 				name: 'Get',
 				value: 'get',
-				action: 'Get an order',
+				action: 'Get order',
 				description: 'Read one order with its items',
 			},
 			{
@@ -52,10 +53,36 @@ export const orderProperties: INodeProperties[] = [
 			show: {
 				resource: ['order'],
 				operation: ['get'],
+				'@version': [1],
 			},
 		},
 		description:
 			'ID of the order to read, as returned by Order → Get Many or by a Bitsnap Trigger event',
+	},
+	{
+		displayName: 'Order',
+		name: 'orderId',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
+		required: true,
+		displayOptions: {
+			show: { resource: ['order'], operation: ['get'], '@version': [{ _cnd: { gte: 1.1 } }] },
+		},
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchOrders',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{ displayName: 'ID', name: 'id', type: 'string' },
+		],
+		description:
+			"Choose an order or enter its ID. Searching buyer names or emails requires the 'customers:pii' scope.",
 	},
 	{
 		displayName: 'Return All',
@@ -112,7 +139,7 @@ export const orderProperties: INodeProperties[] = [
 				type: 'dateTime',
 				default: '',
 				description:
-					'Return only orders created before this time (the moment itself is not included). Read like Created From: a time without an offset is in the time zone of the workflow.',
+					"Return only orders created before this time (the moment itself is not included). Read like 'Created From': a time without an offset is in the time zone of the workflow.",
 			},
 			{
 				displayName: 'Product IDs',
@@ -121,15 +148,16 @@ export const orderProperties: INodeProperties[] = [
 				typeOptions: { multipleValues: true, multipleValueButtonText: 'Add Product ID' },
 				default: [],
 				description:
-					'Return only orders that contain at least one of these products. Use product IDs as returned by Product → Get Many.',
+					"Return only orders that contain at least one of these products. Use product IDs as returned by 'Product → Get Many'.",
 			},
 			{
 				displayName: 'Search',
 				name: 'search',
 				type: 'string',
 				default: '',
+				placeholder: 'e.g. buyer@example.com',
 				description:
-					'Text to look for in the email and the name of the buyer. Needs the "customers:pii" scope on the API key; without it the API refuses the call, so leave this empty then.',
+					"Text to look for in the email and the name of the buyer. Needs the 'customers:pii' scope; without it the API refuses the call, so leave this empty then.",
 			},
 			{
 				displayName: 'Statuses',
@@ -146,12 +174,63 @@ export const orderProperties: INodeProperties[] = [
 		name: 'simplify',
 		type: 'boolean',
 		default: true,
+		displayOptions: { show: { resource: ['order'], '@version': [1] } },
+		description:
+			'Whether to return amounts as decimal numbers (with the minor units next to them) instead of the raw response',
+	},
+	{
+		displayName: 'Simplify',
+		name: 'simplify',
+		type: 'boolean',
+		default: true,
+		displayOptions: {
+			show: { resource: ['order'], '@version': [{ _cnd: { gte: 1.1 } }], '@tool': [false] },
+		},
+		description:
+			'Whether to return ten essential order and payment fields. Money retains the original API minor units and currency. Turn off to return all API fields.',
+	},
+	{
+		displayName: 'Output',
+		name: 'output',
+		type: 'options',
+		default: 'simplified',
+		displayOptions: {
+			show: { resource: ['order'], '@version': [{ _cnd: { gte: 1.1 } }], '@tool': [true] },
+		},
+		options: [
+			{
+				name: 'Simplified',
+				value: 'simplified',
+				description: 'Ten essential fields with original API values; money in minor units',
+			},
+			{
+				name: 'Raw',
+				value: 'raw',
+				description: 'All API fields and original values; money in minor units',
+			},
+			{
+				name: 'Selected Fields',
+				value: 'selectedFields',
+				description: 'Only ID and chosen fields with original API values; money in minor units',
+			},
+		],
+		description: 'Fields to return to the AI agent',
+	},
+	{
+		displayName: 'Fields to Include',
+		name: 'outputFields',
+		type: 'multiOptions',
+		default: [],
+		options: ORDER_OUTPUT_FIELDS,
 		displayOptions: {
 			show: {
 				resource: ['order'],
+				'@version': [{ _cnd: { gte: 1.1 } }],
+				'@tool': [true],
+				output: ['selectedFields'],
 			},
 		},
 		description:
-			'Whether to return amounts as decimal numbers (with the minor units next to them) instead of the raw response',
+			'Fields to return with their original API values. ID is always included, even when no fields are selected.',
 	},
 ];

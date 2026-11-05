@@ -38,7 +38,13 @@ function itemsOf(context: IExecuteFunctions, itemIndex: number): CheckoutItemPar
 		const entry = (typeof line === 'object' && line !== null ? line : {}) as IDataObject;
 
 		return {
-			productId: textOf(entry.productId),
+			productId: textOf(
+				typeof entry.productId === 'object' &&
+					entry.productId !== null &&
+					!Array.isArray(entry.productId)
+					? (entry.productId as IDataObject).value
+					: entry.productId,
+			),
 			quantity: typeof entry.quantity === 'number' ? entry.quantity : undefined,
 		};
 	});

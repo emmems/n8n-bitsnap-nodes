@@ -180,7 +180,9 @@ async function deleteCoupon(context: IExecuteFunctions, itemIndex: number): Prom
 	)) as IDataObject;
 
 	// The API answers with an empty message, so the item says what happened.
-	return { deleted: true, id: body.id, ...response };
+	return context.getNode().typeVersion >= 1.1
+		? { deleted: true }
+		: { ...response, id: body.id, deleted: true };
 }
 
 export const couponResource: BitsnapResource = {

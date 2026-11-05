@@ -39,6 +39,7 @@ interface RecordedRequest {
 	url: string;
 	body: IDataObject;
 	headers: IDataObject;
+	ignoreHttpStatusErrors?: boolean;
 }
 
 /** A node as far as the transport reads it. */
@@ -53,7 +54,10 @@ const node = {
 /**
  * A context whose helper answers with the given responses, one per call.
  */
-function createContext(responses: unknown[]): {
+function createContext(
+	responses: unknown[],
+	authentication?: 'apiKey' | 'oAuth2',
+): {
 	context: IExecuteFunctions;
 	requests: RecordedRequest[];
 	rawBodies: unknown[];
@@ -69,6 +73,7 @@ function createContext(responses: unknown[]): {
 		rawBodies.push(requestOptions.body);
 		requests.push({
 			credentialType,
+			ignoreHttpStatusErrors: requestOptions.ignoreHttpStatusErrors,
 			url: requestOptions.url,
 			body: decodeBody(requestOptions.body),
 			headers: requestOptions.headers ?? {},
@@ -83,7 +88,7 @@ function createContext(responses: unknown[]): {
 	const context = {
 		getCredentials: async () => ({ host: 'https://bitsnap.pl', apiKey: 'bs_test_key' }),
 		getExecutionId: () => 'exec-1',
-		getNode: () => node,
+		getNode: () => ({ ...node, parameters: authentication ? { authentication } : {} }),
 		helpers: { httpRequestWithAuthentication },
 	};
 
@@ -947,5 +952,115 @@ describe('review follow-ups', () => {
 		expect(() => toRfc3339('2026-02-31', 'Europe/Warsaw')).toThrow(/not a valid date/);
 		expect(() => toRfc3339('2026-01-01T25:00', 'UTC')).toThrow(/not a valid date/);
 		expect(toRfc3339('2028-02-29', 'UTC')).toBe('2028-02-29T00:00:00.000Z');
+	});
+});
+
+describe('authentication and recovery through the transport', () => {
+	it.each([undefined, 'apiKey', 'oAuth2'] as const)(
+		'selects credentials for %s without reading optional parameters by exception',
+		async (authentication) => {
+			const { context, requests } = createContext(
+				[fullResponse(200, { projectId: 'p1' })],
+				authentication,
+			);
+			const getCredentials = vi.spyOn(context, 'getCredentials');
+			await bitsnapRpc.call(context, 'AccountService', 'GetAccount');
+			const name = authentication === 'oAuth2' ? 'bitsnapOAuth2Api' : 'bitsnapApi';
+			expect(getCredentials).toHaveBeenCalledWith(name);
+			expect(requests[0].credentialType).toBe(name);
+			// n8n catches thrown 401s to rotate tokens and retry. Suppressing the
+			// HTTP error bypasses that lifecycle; API-key behavior stays unchanged.
+			expect(requests[0].ignoreHttpStatusErrors).toBe(authentication !== 'oAuth2');
+		},
+	);
+
+	it('propagates credential lookup failures without falling back to an API key', async () => {
+		const { context, requests } = createContext([], 'oAuth2');
+		const failure = new Error('OAuth credential is not configured');
+		vi.spyOn(context, 'getCredentials').mockRejectedValue(failure);
+		await expect(bitsnapRpc.call(context, 'AccountService', 'GetAccount')).rejects.toBe(failure);
+		expect(requests).toHaveLength(0);
+	});
+
+	it.each([
+		['invalid_request', { field: 'percentOff' }, 'percentOff'],
+		['product_not_found', {}, 'List products'],
+		['order_not_found', {}, 'environment'],
+		['coupon_not_found', {}, 'List coupons'],
+		['coupon_code_not_found', {}, 'coupon-code ID'],
+		['webhook_not_found', {}, 'List webhooks'],
+		['checkout_unavailable', {}, 'payment gateway and shipping'],
+		['discount_not_allowed', { maximum: '30' }, '30'],
+		['product_not_purchasable', {}, 'in stock'],
+		['order_not_settleable', {}, 'new test checkout'],
+		['order_not_paid', {}, 'must be paid'],
+		['service_unavailable', {}, 'same idempotency key'],
+		['future_reason', {}, 'Bitsnap support'],
+	] as const)('explains %s while preserving API context', async (reason, metadata, hint) => {
+		const { context } = createContext([
+			fullResponse(400, connectError('invalid_argument', reason, 'API detail.', metadata), {
+				'X-Request-ID': 'req-recovery',
+			}),
+		]);
+		const error = (await bitsnapRpc
+			.call(context, 'ProductsService', 'CreateProduct', {}, { itemIndex: 4 })
+			.catch((failure: unknown) => failure)) as NodeApiError;
+		expect(error).toBeInstanceOf(NodeApiError);
+		expect(error.message).toBe(`[${reason}] API detail.`);
+		expect(error.description).toContain(hint);
+		expect(error.description).toContain('Request ID: req-recovery');
+		expect(error.httpCode).toBe('400');
+		expect(error.context.itemIndex).toBe(4);
+	});
+
+	it.each([
+		['missing_scope', { scope: 'products:write' }, 'reconnect'],
+		['pii_scope_required', {}, 'customers:pii'],
+		['test_mode_only', {}, 'OAuth grant for the test environment'],
+		['invalid_credentials', {}, 'Reconnect the OAuth credential'],
+		['writes_disabled', {}, 'OAuth grants do not use an API-key write switch'],
+	] as const)('uses OAuth recovery for %s', async (reason, metadata, hint) => {
+		const { context } = createContext(
+			[
+				new Thrown({
+					response: { status: 403, data: connectError('permission_denied', reason, 'Refused.') },
+				}),
+			],
+			'oAuth2',
+		);
+		// Include scope metadata on the full response for the scope-specific hint.
+		const { context: withMetadata } = createContext(
+			[fullResponse(403, connectError('permission_denied', reason, 'Refused.', metadata))],
+			'oAuth2',
+		);
+		for (const candidate of [context, withMetadata]) {
+			const error = (await bitsnapRpc
+				.call(candidate, 'ProductsService', 'CreateProduct')
+				.catch((failure: unknown) => failure)) as NodeApiError;
+			expect(error.description).toContain(hint);
+			expect(error.description).not.toContain('Enable the');
+			expect(error.description).not.toContain('bs_test_');
+		}
+	});
+
+	it('reports uncertain write results after a lost response without automatically retrying', async () => {
+		const { context, requests } = createContext(
+			[new Thrown(new Error('socket hang up'))],
+			'oAuth2',
+		);
+		const error = (await bitsnapRpc
+			.call(
+				context,
+				'ProductsService',
+				'CreateProduct',
+				{ name: 'A' },
+				{ write: true, idempotencyKey: 'stable-key', itemIndex: 2 },
+			)
+			.catch((failure: unknown) => failure)) as NodeApiError;
+		expect(error.description).toContain('may already have completed');
+		expect(error.description).toContain('same idempotency key and body');
+		expect(error.context.itemIndex).toBe(2);
+		expect(requests).toHaveLength(1);
+		expect(requests[0].headers['Idempotency-Key']).toBe('stable-key');
 	});
 });

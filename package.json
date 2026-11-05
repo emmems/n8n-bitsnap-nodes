@@ -1,6 +1,6 @@
 {
 	"name": "@emems/n8n-nodes-bitsnap",
-	"version": "1.0.8",
+	"version": "1.1.0",
 	"description": "n8n community nodes for Bitsnap (bitsnap.pl) public API",
 	"keywords": [
 		"n8n-community-node-package",
@@ -38,7 +38,8 @@
 		"n8nNodesApiVersion": 1,
 		"strict": true,
 		"credentials": [
-			"dist/credentials/BitsnapApi.credentials.js"
+			"dist/credentials/BitsnapApi.credentials.js",
+			"dist/credentials/BitsnapOAuth2Api.credentials.js"
 		],
 		"nodes": [
 			"dist/nodes/Bitsnap/Bitsnap.node.js",

@@ -11,10 +11,11 @@
 import type { IDataObject, IExecuteFunctions } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { bitsnapRpc, bitsnapRpcAll, simplifyMoney } from '../../transport';
+import { bitsnapRpc, bitsnapRpcAll } from '../../transport';
 import type { BitsnapResource } from '../types';
 import { buildGetOrderBody, buildListOrdersBody } from './body';
 import { orderProperties } from './parameters';
+import { orderAnswer } from './output';
 import type { GetOrderResponse, Order } from './types';
 
 /** The number of orders a list returns when the user sets no limit. */
@@ -55,18 +56,12 @@ function build(
 	}
 }
 
-/** The order of an answer, with the money simplified when the user asked for it. */
-function orderAnswer(context: IExecuteFunctions, itemIndex: number, order: Order): IDataObject {
-	const value = order as unknown as IDataObject;
-	const simplify = context.getNodeParameter('simplify', itemIndex, true) === true;
-
-	return simplify ? simplifyMoney(value) : value;
-}
-
 /** Reads one order with its items. */
 async function getOrder(context: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
 	const body = build(context, itemIndex, () =>
-		buildGetOrderBody({ id: textOf(context.getNodeParameter('orderId', itemIndex, '')) }),
+		buildGetOrderBody({
+			id: textOf(context.getNodeParameter('orderId', itemIndex, '', { extractValue: true })),
+		}),
 	);
 
 	const response = (await bitsnapRpc.call(context, 'OrdersService', 'GetOrder', body, {

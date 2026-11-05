@@ -44,13 +44,14 @@ const variantValues: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		description:
-			'ID of an existing variant of the product to change, as returned by Product → Get. Leave empty to add a new variant.',
+			"ID of an existing variant of the product to change, as returned by 'Product → Get'. Leave empty to add a new variant.",
 	},
 	{
 		displayName: 'Name',
 		name: 'name',
 		type: 'string',
 		default: '',
+		placeholder: 'e.g. sizeM',
 		required: true,
 		description: 'Name of the variant shown to buyers, for example "Size M"',
 	},
@@ -62,7 +63,7 @@ const variantValues: INodeProperties[] = [
 		default: 0,
 		required: true,
 		description:
-			'Price of the variant as a decimal amount, for example 19.99 (2 decimal places). With Options → Amounts in Minor Units it is a whole number of minor units, for example 1999. 0 makes the variant free.',
+			"Price of the variant as a decimal amount, for example 19.99 (2 decimal places). With 'Options → Amounts in Minor Units' it is a whole number of minor units, for example 1999. 0 makes the variant free.",
 	},
 	{
 		displayName: 'Currency',
@@ -71,7 +72,7 @@ const variantValues: INodeProperties[] = [
 		default: '',
 		options: variantCurrencyOptions,
 		description:
-			'Currency of the price of the variant. Leave on Product Currency to use the currency of the product; on update, an existing variant keeps its current currency unless Update Fields → Currency is set. Another three-letter code can be set with an expression.',
+			"Currency of the price of the variant. Leave on 'Product Currency' to use the currency of the product; on update, an existing variant keeps its current currency unless 'Update Fields → Currency' is set. Another three-letter code can be set with an expression.",
 	},
 	{
 		displayName: 'Track Stock',
@@ -79,7 +80,7 @@ const variantValues: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		description:
-			'Whether to set the stock of the variant to the Available Quantity. When off, the stock is not sent: a new variant does not track its stock and an existing variant keeps the stock it has (the API cannot switch stock tracking off).',
+			"Whether to set the stock of the variant to the 'Available Quantity'. When off, the stock is not sent: a new variant does not track its stock and an existing variant keeps the stock it has (the API cannot switch stock tracking off).",
 	},
 	{
 		displayName: 'Available Quantity',
@@ -116,7 +117,7 @@ const createFields: INodeProperties[] = [
 		type: 'string',
 		typeOptions: { multipleValues: true, multipleValueButtonText: 'Add Image URL' },
 		default: [],
-		placeholder: 'https://example.com/image.jpg',
+		placeholder: 'e.g. https://example.com/image.jpg',
 		description: 'Absolute URLs of the product images. The first one is the main image.',
 	},
 	{
@@ -159,7 +160,7 @@ const updateFields: INodeProperties[] = [
 		default: 'PLN',
 		options: currencyOptions,
 		description:
-			'Currency of the new Price. Required together with Price and refused without it, so the amount is never read in the wrong currency. Listed Variants that have no currency of their own are sent in this currency too. Another three-letter code can be set with an expression.',
+			"Currency of the new 'Price'. Required together with 'Price' and refused without it, so the amount is never read in the wrong currency. Listed 'Variants' that have no currency of their own are sent in this currency too. Another three-letter code can be set with an expression.",
 	},
 	{
 		displayName: 'Images',
@@ -167,7 +168,7 @@ const updateFields: INodeProperties[] = [
 		type: 'string',
 		typeOptions: { multipleValues: true, multipleValueButtonText: 'Add Image URL' },
 		default: [],
-		placeholder: 'https://example.com/image.jpg',
+		placeholder: 'e.g. https://example.com/image.jpg',
 		description:
 			'Absolute URLs of the product images. When not empty, they replace all the images of the product.',
 	},
@@ -176,6 +177,7 @@ const updateFields: INodeProperties[] = [
 		name: 'name',
 		type: 'string',
 		default: '',
+		placeholder: 'e.g. summerCourse',
 		description: 'New name of the product shown to buyers',
 	},
 	{
@@ -185,7 +187,7 @@ const updateFields: INodeProperties[] = [
 		typeOptions: { minValue: 0, numberPrecision: 2 },
 		default: 0,
 		description:
-			'New price of the product as a decimal amount, for example 19.99. Set the Currency as well. With Options → Amounts in Minor Units it is a whole number of minor units.',
+			"New price of the product as a decimal amount, for example 19.99. Set the 'Currency' as well. With 'Options → Amounts in Minor Units' it is a whole number of minor units.",
 	},
 	{
 		displayName: 'Revision',
@@ -213,7 +215,7 @@ const updateFields: INodeProperties[] = [
 		default: {},
 		options: [variantSection],
 		description:
-			'When not empty, replaces the variants of the product: a variant whose ID is not listed is removed, so list every variant to keep (with its ID) and leave this out to keep the variants as they are. Every listed variant needs a name and a price. A listed variant with Track Stock off keeps the stock it has; the API cannot turn stock tracking off.',
+			"When not empty, replaces the variants of the product: a variant whose ID is not listed is removed, so list every variant to keep (with its ID) and leave this out to keep the variants as they are. Every listed variant needs a name and a price. A listed variant with 'Track Stock' off keeps the stock it has; the API cannot turn stock tracking off.",
 	},
 ];
 
@@ -266,13 +268,13 @@ export const productProperties: INodeProperties[] = [
 			{
 				name: 'Create',
 				value: 'create',
-				action: 'Create a product',
+				action: 'Create product',
 				description: 'Add a product to the shop',
 			},
 			{
 				name: 'Get',
 				value: 'get',
-				action: 'Get a product',
+				action: 'Get product',
 				description: 'Read one product with its variants',
 			},
 			{
@@ -284,7 +286,7 @@ export const productProperties: INodeProperties[] = [
 			{
 				name: 'Update',
 				value: 'update',
-				action: 'Update a product',
+				action: 'Update product',
 				description: 'Change the fields of a product',
 			},
 		],
@@ -327,6 +329,7 @@ export const productProperties: INodeProperties[] = [
 		name: 'name',
 		type: 'string',
 		default: '',
+		placeholder: 'e.g. summerCourse',
 		required: true,
 		displayOptions: {
 			show: {
@@ -350,7 +353,7 @@ export const productProperties: INodeProperties[] = [
 			},
 		},
 		description:
-			'Price of the product as a decimal amount with 2 decimal places, for example 19.99. With Options → Amounts in Minor Units it is a whole number of minor units, for example 1999. 0 makes the product free.',
+			"Price of the product as a decimal amount with 2 decimal places, for example 19.99. With 'Options → Amounts in Minor Units' it is a whole number of minor units, for example 1999. 0 makes the product free.",
 	},
 	{
 		displayName: 'Currency',
@@ -366,7 +369,7 @@ export const productProperties: INodeProperties[] = [
 			},
 		},
 		description:
-			'Currency of the price of the product, also the default currency of its variants. The list has the currencies Bitsnap sells in; the API takes any three-letter ISO 4217 code, so another one can be set with an expression. A decimal Price is converted assuming 2 decimal places (19.99 becomes 1999); for a currency with another number of decimals turn on Options → Amounts in Minor Units.',
+			"Currency of the price of the product, also the default currency of its variants. The list has the currencies Bitsnap sells in; the API takes any three-letter ISO 4217 code, so another one can be set with an expression. A decimal 'Price' is converted assuming 2 decimal places (19.99 becomes 1999); for a currency with another number of decimals turn on 'Options → Amounts in Minor Units'.",
 	},
 	{
 		displayName: 'Additional Fields',
@@ -450,6 +453,7 @@ export const productProperties: INodeProperties[] = [
 				name: 'search',
 				type: 'string',
 				default: '',
+				placeholder: 'e.g. summerCourse',
 				description: 'Return only products whose name contains this text (case-insensitive)',
 			},
 		],

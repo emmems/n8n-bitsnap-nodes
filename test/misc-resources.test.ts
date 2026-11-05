@@ -322,9 +322,16 @@ describe('webhook events', () => {
 	});
 
 	it('offers them in the create operation', () => {
-		const events = webhookResource.properties.find((property) => property.name === 'events');
+		const fields = webhookResource.properties.find(
+			(property) => property.name === 'additionalFields',
+		);
+		const events = fields?.options?.find((property) => property.name === 'events');
 
 		expect(events?.type).toBe('multiOptions');
+		expect(events).not.toHaveProperty('required', true);
+		expect(webhookResource.properties.find((property) => property.name === 'events')).toMatchObject(
+			{ type: 'hidden', default: ['ALL'] },
+		);
 		expect(events?.options).toEqual(WEBHOOK_EVENTS);
 	});
 });

@@ -12,7 +12,10 @@ import {
 	getProducts,
 	getWebhooks,
 	searchCoupons,
+	searchCouponCodes,
+	searchCheckoutProducts,
 	searchProducts,
+	searchOrders,
 	searchWebhooks,
 } from './methods/listSearch';
 import { bitsnapResources, getBitsnapResource } from './resources';
@@ -30,7 +33,8 @@ export class Bitsnap implements INodeType {
 		name: 'bitsnap',
 		icon: { light: 'file:bitsnap.svg', dark: 'file:bitsnap.svg' },
 		group: ['output'],
-		version: 1,
+		version: [1, 1.1],
+		defaultVersion: 1.1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description: 'Read and write the data of a Bitsnap shop',
 		defaults: {
@@ -43,9 +47,26 @@ export class Bitsnap implements INodeType {
 			{
 				name: 'bitsnapApi',
 				required: true,
+				displayOptions: { show: { authentication: ['apiKey'] } },
+			},
+			{
+				name: 'bitsnapOAuth2Api',
+				required: true,
+				displayOptions: { show: { authentication: ['oAuth2'] } },
 			},
 		],
 		properties: [
+			{
+				displayName: 'Authentication',
+				name: 'authentication',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'API Key', value: 'apiKey' },
+					{ name: 'OAuth2', value: 'oAuth2' },
+				],
+				default: 'apiKey',
+			},
 			{
 				displayName: 'Resource',
 				name: 'resource',
@@ -70,7 +91,10 @@ export class Bitsnap implements INodeType {
 		},
 		listSearch: {
 			searchProducts,
+			searchOrders,
 			searchCoupons,
+			searchCouponCodes,
+			searchCheckoutProducts,
 			searchWebhooks,
 		},
 	};

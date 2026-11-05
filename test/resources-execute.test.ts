@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { decodeBody } from './request-body';
 
+import { Bitsnap } from '../nodes/Bitsnap/Bitsnap.node';
 import { checkoutResource } from '../nodes/Bitsnap/resources/checkout';
 import { couponResource } from '../nodes/Bitsnap/resources/coupon';
 import { couponCodeResource } from '../nodes/Bitsnap/resources/couponCode';
@@ -21,6 +22,7 @@ import { defaultIdempotencyKey } from '../nodes/Bitsnap/transport';
 const BASE = 'https://bitsnap.test/api/v1/bitsnap.v1';
 
 interface StubOptions {
+	typeVersion?: number;
 	/** The parameters of the node, by name. */
 	params: Record<string, unknown>;
 	/** The body of the answer of the API. */
@@ -46,7 +48,11 @@ function makeStub(options: StubOptions): Stub {
 	const requests: IHttpRequestOptions[] = [];
 
 	const context = {
-		getNode: () => ({ name: 'Bitsnap', type: 'n8n-nodes-bitsnap.bitsnap', typeVersion: 1 }),
+		getNode: () => ({
+			name: 'Bitsnap',
+			type: 'n8n-nodes-bitsnap.bitsnap',
+			typeVersion: options.typeVersion ?? 1,
+		}),
 		getTimezone: () => options.timezone ?? 'UTC',
 		getExecutionId: () => 'exec-1',
 		getWorkflowDataProxy: () => ({ $runIndex: options.runIndex ?? 0 }),
@@ -638,4 +644,121 @@ describe('errors of the API', () => {
 			NodeApiError,
 		);
 	});
+});
+
+describe('integrated UX behavior', () => {
+	it.each([
+		[['TRANSACTION_SUCCESS'], ['SUBSCRIPTION_CREATED'], ['SUBSCRIPTION_CREATED']],
+		[['TRANSACTION_SUCCESS'], [], ['ALL']],
+		[['TRANSACTION_SUCCESS'], undefined, ['TRANSACTION_SUCCESS']],
+	])(
+		'uses nested webhook events when present, including an empty selection',
+		async (legacy, nested, expected) => {
+			const { context, requests } = makeStub({
+				params: {
+					url: 'https://example.com/hook',
+					events: legacy,
+					additionalFields: nested === undefined ? {} : { events: nested },
+				},
+			});
+			await webhookResource.execute.call(context, 'create', 0);
+			expect(requests[0].body.events).toEqual(expected);
+		},
+	);
+
+	it('creates checkout links with both variant locators and legacy literal IDs', async () => {
+		const { context, requests } = makeStub({
+			typeVersion: 1.1,
+			params: {
+				items: {
+					item: [{ productId: locator('variant_1') }, { productId: 'product_1', quantity: 2 }],
+				},
+			},
+		});
+		await checkoutResource.execute.call(context, 'createLink', 0);
+		expect(requests[0].body.items).toEqual([
+			{ productId: 'variant_1', quantity: 1 },
+			{ productId: 'product_1', quantity: 2 },
+		]);
+	});
+
+	it('updates a coupon code using its own locator ID', async () => {
+		const { context, requests } = makeStub({
+			typeVersion: 1.1,
+			params: {
+				couponCodeId: locator('code_2'),
+				code: 'SUMMER20',
+			},
+		});
+		await couponCodeResource.execute.call(context, 'update', 0);
+		expect(requests[0].body.id).toBe('code_2');
+	});
+
+	it.each([
+		['coupon', { couponId: locator('coupon_1') }],
+		['couponCode', { couponCodeId: locator('code_1') }],
+		['webhook', { webhookId: locator('webhook_1') }],
+	])(
+		'returns one exact confirmation with pairing for %s deletion in version 1.1',
+		async (resource, ids) => {
+			const { context } = makeStub({
+				typeVersion: 1.1,
+				params: {
+					resource,
+					operation: 'delete',
+					...ids,
+				},
+				response: { deleted: false, ignoredField: 'discard me' },
+			});
+			context.getInputData = () => [{ json: {} }];
+			context.continueOnFail = () => false;
+			expect(await new Bitsnap().execute.call(context)).toEqual([
+				[{ json: { deleted: true }, pairedItem: { item: 0 } }],
+			]);
+		},
+	);
+});
+
+describe('recovery guidance through Bitsnap.execute', () => {
+	it.each(['invalid_request', 'coupon_not_found', 'network'])(
+		'preserves %s recovery and item context',
+		async (reason) => {
+			const { context } = makeStub({
+				params: { resource: 'coupon', operation: 'delete', couponId: locator('missing') },
+			});
+			context.getInputData = () => [{ json: {} }];
+			context.continueOnFail = () => false;
+			context.helpers.httpRequestWithAuthentication = async () => {
+				if (reason === 'network') throw new Error('socket closed');
+				return {
+					statusCode: 400,
+					headers: { 'X-Request-ID': 'req-ux-dispatch' },
+					body: {
+						code: 'invalid_argument',
+						message: `[${reason}] Refused.`,
+						details: [
+							{
+								type: 'bitsnap.v1.ErrorInfo',
+								debug: { reason, metadata: { field: 'percentOff' } },
+							},
+						],
+					},
+				};
+			};
+			const error = (await new Bitsnap().execute
+				.call(context)
+				.catch((failure: unknown) => failure)) as NodeApiError;
+			expect(error).toBeInstanceOf(NodeApiError);
+			expect(error.context.itemIndex).toBe(0);
+			if (reason === 'network') {
+				expect(error.description).toContain('Host');
+			} else {
+				expect(error.message).toContain(`[${reason}]`);
+				expect(error.description).toContain('req-ux-dispatch');
+				expect(error.description).toContain(
+					reason === 'invalid_request' ? 'Percent Off' : 'List coupons',
+				);
+			}
+		},
+	);
 });

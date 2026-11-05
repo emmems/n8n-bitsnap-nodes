@@ -29,7 +29,7 @@ export interface GetAccountResponse {
 export const accountResource: BitsnapResource = {
 	value: 'account',
 	name: 'Account',
-	description: 'The project, the environment and the scopes of the API key',
+	description: 'The project, environment and scopes of the credential',
 	properties: [
 		{
 			displayName: 'Operation',
@@ -45,8 +45,8 @@ export const accountResource: BitsnapResource = {
 				{
 					name: 'Get',
 					value: 'get',
-					action: 'Get the account of the API key',
-					description: 'The project, the environment and the scopes of the credential',
+					action: 'Get account',
+					description: 'Get account details: the project, environment and scopes of the credential',
 				},
 			],
 			default: 'get',

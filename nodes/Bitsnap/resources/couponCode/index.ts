@@ -120,7 +120,7 @@ async function updateCode(context: IExecuteFunctions, itemIndex: number): Promis
 	const body = build(context, itemIndex, () =>
 		buildUpdateCouponCodeBody({
 			...codeParams(context, itemIndex),
-			id: textParam(context, 'couponCodeId', itemIndex),
+			id: locatorParam(context, 'couponCodeId', itemIndex),
 		}),
 	);
 
@@ -136,7 +136,7 @@ async function updateCode(context: IExecuteFunctions, itemIndex: number): Promis
 /** Deletes a code. */
 async function deleteCode(context: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
 	const body = build(context, itemIndex, () =>
-		buildDeleteCouponCodeBody({ id: textParam(context, 'couponCodeId', itemIndex) }),
+		buildDeleteCouponCodeBody({ id: locatorParam(context, 'couponCodeId', itemIndex) }),
 	);
 
 	const response = (await bitsnapRpc.call(
@@ -148,7 +148,9 @@ async function deleteCode(context: IExecuteFunctions, itemIndex: number): Promis
 	)) as IDataObject;
 
 	// The API answers with an empty message, so the item says what happened.
-	return { deleted: true, id: body.id, ...response };
+	return context.getNode().typeVersion >= 1.1
+		? { deleted: true }
+		: { ...response, id: body.id, deleted: true };
 }
 
 export const couponCodeResource: BitsnapResource = {

@@ -16,6 +16,7 @@ Links: [bitsnap.pl](https://bitsnap.pl) · [API documentation](https://docs.bits
 - [Bitsnap node](#bitsnap-node)
 - [Limits and behavior](#limits-and-behavior)
 - [Bitsnap Trigger](#bitsnap-trigger)
+- [Upgrading from 1.0.x](#upgrading-from-10x)
 - [Migrating from 0.x](#migrating-from-0x)
 - [Development](#development)
 - [Compatibility](#compatibility)
@@ -42,6 +43,10 @@ npm install @emems/n8n-nodes-bitsnap
 Restart n8n afterwards.
 
 ## Credentials
+
+Choose **API Key** or **OAuth2** in the node’s **Authentication** field. Existing nodes keep API-key authentication.
+
+### API key
 
 Create an API key in the Bitsnap dashboard under **Settings → Developer**, then create a **Bitsnap API** credential in n8n.
 
@@ -78,9 +83,29 @@ Write operations also require the key's **write switch** to be turned on in the 
 
 Without the `customers:pii` scope, customer data (email, name, phone, addresses) in orders is masked.
 
+### OAuth2
+
+OAuth support is verified against **n8n 2.46.6**. Use that version or a newer compatible release; older n8n releases may omit the required OAuth resource audience. Existing API-key authentication remains available.
+
+1. Create a **Bitsnap OAuth2 API** credential in n8n and copy its **OAuth Redirect URL**.
+2. Register a public client with Bitsnap using that exact redirect URL. This is a public client: there is no client secret. For example, send this request after replacing the redirect URL:
+
+   ```bash
+   curl --request POST 'https://bitsnap.pl/oauth/register' \
+     --header 'Content-Type: application/json' \
+     --data '{"client_name":"n8n Bitsnap","redirect_uris":["https://n8n.example.com/rest/oauth2-credential/callback"],"token_endpoint_auth_method":"none","grant_types":["authorization_code","refresh_token"],"response_types":["code"]}'
+   ```
+
+3. Enter the returned **Client ID**, choose the environment and the scopes your workflow needs, then connect the account. The consent page lets the owner confirm the environment; **Account → Get** reports the granted environment. Use separate credentials for test and live access.
+4. Select **OAuth2** on the action or trigger node and select the connected credential.
+
+The trigger needs `webhooks:read` and `webhooks:write`; its form picker also needs `leads:read`. Search by buyer name or email needs `customers:pii`. OAuth writes use consent scopes and do not need an API-key write switch. The credential requests `offline_access` and uses PKCE; n8n exchanges and refreshes tokens with the resource audience `{host}/api/v1`, retaining rotated refresh tokens. Reconnect after changing Host, Environment, or Scopes, or after access is revoked.
+
+See [Bitsnap’s OAuth documentation](https://docs.bitsnap.pl/en/reference/api/#oauth-for-apps) for public-client registration, consent, and revocation. Live consent and refresh persistence require a connected n8n instance; automated package tests use mocked requests.
+
 ## Bitsnap node
 
-Select a resource, then an operation. The **Required scope** column shows what the API key needs.
+Select a resource, then an operation. The **Required scope** column shows the permissions the selected credential needs.
 
 | Resource | Operation | Required scope |
 | --- | --- | --- |
@@ -112,8 +137,9 @@ The node is marked as usable as a tool, so you can attach it to an **AI Agent** 
 - **Write limit.** A key can perform 50 write operations per day by default. Creating checkout links is exempt from this limit. When the limit is reached, the node fails with a clear error.
 - **Rate limit.** About 300 requests per minute per key. On a `429` with the reason `rate_limited` and a `Retry-After` of up to 30 seconds, the node waits that long and retries once. It does not retry when the wait is longer than 30 seconds, when there is no `Retry-After`, or for other `429` errors such as `daily_write_limit`. These fail right away with a clear error.
 - **Idempotency.** Every write operation sends an `Idempotency-Key`. The node derives one from the execution, the node, the run index, the item and a hash of the request body. A repeated send of the same request is therefore safe: the node's own **Retry On Fail** setting and the internal `429` retry reuse the key, and Bitsnap replays the first result instead of writing twice. Re-running an execution from the executions list starts a new execution, so it creates a new key and writes again. You can set your own key in **Options**. It must be 1–255 printable ASCII characters and unique per write: reusing a key for a different request fails with `idempotency_key_reused`. Keys are remembered by Bitsnap for 24 hours.
-- **Money.** Prices and amounts are entered as decimals (for example `19.99`) with a currency, and converted to minor units (`1999`) for the API. Money inputs of products and coupon codes have an **Amounts in Minor Units** toggle for when you already have minor units (`1999`). Outputs of read operations keep amounts in minor units unless **Simplify** is enabled.
-- **Simplify.** Read operations have a **Simplify** option, on by default. It only rewrites money objects `{ "amount": 1999, "currency": "PLN" }` into a decimal `amount` (`19.99`) plus `amountMinor` (`1999`). It does not change timestamps or other fields. Not every read operation has it (for example Account → Get and Webhook → Get Many do not). Turn it off to get the API response unchanged.
+- **Money.** Prices and amounts are entered as decimals (for example `19.99`) with a currency, and converted to minor units (`1999`) for the API. Money inputs of products and coupon codes have an **Amounts in Minor Units** toggle for when you already have minor units (`1999`). Order version 1.1 keeps output money in API minor units in every mode. Other read operations and Order version 1 can convert output money when **Simplify** is enabled.
+- **Order output (node version 1.1).** Normal nodes default to **Simplify**, returning at most ten essential fields; turn it off for all API fields. When used as an AI tool, **Output** offers **Simplified**, **Raw**, and **Selected Fields**. Selected output always includes `id`. Money keeps its original minor units and currency in every mode.
+- **Legacy Simplify.** Order version 1 and Product/Coupon read operations retain their money conversion: `{ "amount": 1999, "currency": "PLN" }` becomes a decimal `amount` (`19.99`) plus `amountMinor` (`1999`). This does not limit the number of output fields. Turn Simplify off for the unchanged API response. Account and Webhook reads do not have this conversion.
 - **Pagination.** Get Many operations support **Return All** (the node follows the cursor until the end) and **Limit**, the total number of results to return. The node fetches them 100 at a time.
 - **Dates and time zones.** Dates and times of order filters, the sales summary and coupons are read in the **workflow time zone** (Workflow settings) when they have no offset. A value with an offset or `Z` (for example `2026-03-15T10:00:00+01:00`) is used as given.
 - **Coupons.** The API accepts only percentage discounts, up to the maximum of the key (30% by default). Fixed-amount discounts are refused with `discount_not_allowed`.
@@ -126,7 +152,7 @@ The **Bitsnap Trigger** node starts a workflow for the Bitsnap events you select
 - When the workflow is **activated**, the node registers a webhook in Bitsnap (it appears in your dashboard as `n8n: <workflow name>`).
 - When the workflow is **deactivated**, the webhook is removed.
 - Every delivery is verified with the signing secret, using an HMAC-SHA512 of the raw request body compared to the `X-Content-Signature` header. Requests with an invalid signature are rejected with `401`.
-- The API key needs the `webhooks:read` and `webhooks:write` scopes and its write switch on. The form picker also needs `leads:read`. Test keys receive test events; live keys receive live events.
+- The credential needs `webhooks:read` and `webhooks:write`. API keys also need the write switch on; OAuth uses the granted consent scopes. The form picker needs `leads:read`. The credential’s granted environment determines whether test or live events arrive.
 
 ### Events
 
@@ -191,6 +217,16 @@ Deliveries are **at-least-once** and **not ordered**. The same event can arrive 
 - The environment follows the API key. With a `bs_test_…` key you only receive test events; use a separate credential for live events.
 - With a test key, use **Bitsnap → Checkout → Settle Test Payment** to mark a test checkout as paid or failed and fire `TRANSACTION_SUCCESS` / `TRANSACTION_FAILURE`.
 
+## Upgrading from 1.0.x
+
+The package version and n8n’s node version are separate. New Bitsnap action nodes use node version **1.1**. Existing version **1** nodes keep their output shape, money conversion, and string ID inputs. Upgrade a node deliberately after reviewing downstream expressions: version 1.1 Order Simplify has fewer fields and money in minor units, and successful Delete operations return exactly `{ "deleted": true }`. Version 1 retains the deleted record ID.
+
+Version 1.1 adds searchable Order, Coupon Code, and checkout Product/Variant selectors with manual ID modes. Loading the pickers requires the corresponding read scope; manual ID entry avoids listing calls. Checkout selection includes variant IDs, not just parent products.
+
+The optional trigger form filter is under **Options → Form Names or IDs**. Saved 1.0.6 top-level filters and expressions still work. A filter explicitly set in Options takes precedence; explicitly clearing it receives every form. Similarly, Webhook → Create now puts Events in **Additional Fields**. Saved top-level selections remain supported; an explicit empty selection means all events.
+
+Webhook → Create returns a one-time signing secret in its output. n8n retains it in execution data; limit access to that data and follow your retention policy. The trigger stores its own signing secret in node static data for signature verification.
+
 ## Migrating from 0.x
 
 Version 0.1.0 never worked in n8n: its package metadata pointed at files that did not exist, so the nodes did not load. There are no working workflows to migrate, but note the changes:
@@ -227,7 +263,7 @@ To publish from your machine instead, run `RELEASE_MODE=true npm publish --acces
 
 ## Compatibility
 
-- n8n 2.x (built against `n8n-workflow` 2.x)
+- n8n 2.x (built against `n8n-workflow` 3.0.1). OAuth protocol support verified against n8n 2.46.6; use that version or a newer compatible release for OAuth.
 - `n8nNodesApiVersion`: 1
 
 ## Resources

@@ -56,7 +56,20 @@ export interface Order {
 	/** The coupon code the buyer used, if any. */
 	couponCode: string;
 	/** Price of the delivery, if the order has one. */
-	deliveryPrice?: Money;
+	deliveryPrice?: Money | null;
+	/** Reference supplied when checkout was created. */
+	clientReferenceId: string;
+	/** Creator-supplied metadata; empty in list responses. */
+	metadata: Record<string, string>;
+	/** Gateway payment ID. */
+	paymentId: string;
+	/** Paid and refunded amounts; unset in list responses. */
+	amountPaid?: Money | null;
+	amountRefunded?: Money | null;
+	/** Payment lifecycle state, separate from order status. */
+	paymentState: string;
+	/** Issued invoice or receipt URL. */
+	invoiceUrl: string;
 }
 
 /** The answer of `OrdersService.GetOrder`. */

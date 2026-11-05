@@ -17,9 +17,10 @@ const itemSection: INodePropertyCollection = {
 			displayName: 'Product ID',
 			name: 'productId',
 			type: 'string',
+			required: true,
 			default: '',
 			description:
-				'ID of the product or of one of its variants. Pick it from the output of Product → Get Many.',
+				"ID of the product or of one of its variants. Pick it from the output of 'Product → Get Many'.",
 		},
 		{
 			displayName: 'Quantity',
@@ -48,16 +49,16 @@ export const checkoutProperties: INodeProperties[] = [
 			{
 				name: 'Create Link',
 				value: 'createLink',
-				action: 'Create a checkout link',
+				action: 'Create checkout link',
 				description:
-					'Create an order for existing products and get the URL the buyer pays at. Does not count towards the daily write limit of the API key.',
+					'Create a checkout link for existing products and return the URL the buyer pays at. Does not count towards the daily write limit of the API key.',
 			},
 			{
 				name: 'Settle Test Payment',
 				value: 'settleTestPayment',
-				action: 'Settle a test payment',
+				action: 'Settle checkout test payment',
 				description:
-					'Finish a test-mode order as paid or failed. Works only with a test API key (bs_test_…). A live key is refused with "test_mode_only".',
+					"Settle a checkout test payment as paid or failed. Works only in the test environment. Live credentials are refused with 'test_mode_only'.",
 			},
 		],
 		default: 'createLink',
@@ -75,6 +76,50 @@ export const checkoutProperties: INodeProperties[] = [
 			show: {
 				resource: ['checkout'],
 				operation: ['createLink'],
+				'@version': [1],
+			},
+		},
+		description: `What the buyer buys, at most ${CHECKOUT_MAX_ITEMS} items`,
+	},
+	{
+		displayName: 'Items',
+		name: 'items',
+		type: 'fixedCollection',
+		typeOptions: { multipleValues: true },
+		placeholder: 'Add Item',
+		default: {},
+		required: true,
+		options: [
+			{
+				...itemSection,
+				values: [
+					{
+						displayName: 'Product',
+						name: 'productId',
+						type: 'resourceLocator',
+						required: true,
+						default: { mode: 'list', value: '' },
+						modes: [
+							{
+								displayName: 'From List',
+								name: 'list',
+								type: 'list',
+								typeOptions: { searchListMethod: 'searchCheckoutProducts', searchable: true },
+							},
+							{ displayName: 'ID', name: 'id', type: 'string' },
+						],
+						description:
+							'Choose a product or variant, or enter its ID. Loading the list requires the products:read scope.',
+					},
+					itemSection.values[1],
+				],
+			},
+		],
+		displayOptions: {
+			show: {
+				resource: ['checkout'],
+				operation: ['createLink'],
+				'@version': [{ _cnd: { gte: 1.1 } }],
 			},
 		},
 		description: `What the buyer buys, at most ${CHECKOUT_MAX_ITEMS} items`,
@@ -97,7 +142,7 @@ export const checkoutProperties: INodeProperties[] = [
 				name: 'cancelUrl',
 				type: 'string',
 				default: '',
-				placeholder: 'https://example.com/cancelled',
+				placeholder: 'e.g. https://example.com/cancelled',
 				description: 'Absolute https URL the buyer is sent to when they cancel',
 			},
 			{
@@ -112,7 +157,7 @@ export const checkoutProperties: INodeProperties[] = [
 				name: 'customerEmail',
 				type: 'string',
 				default: '',
-				placeholder: 'name@email.com',
+				placeholder: 'e.g. name@example.com',
 				description: 'Email of the buyer, used to fill in the checkout form',
 			},
 			{
@@ -120,7 +165,7 @@ export const checkoutProperties: INodeProperties[] = [
 				name: 'successUrl',
 				type: 'string',
 				default: '',
-				placeholder: 'https://example.com/thanks',
+				placeholder: 'e.g. https://example.com/thanks',
 				description:
 					'Absolute https URL the buyer is sent to after a successful payment, the default thank-you page of the shop is used when empty',
 			},
@@ -138,7 +183,7 @@ export const checkoutProperties: INodeProperties[] = [
 				operation: ['settleTestPayment'],
 			},
 		},
-		description: 'ID of a test-mode order, taken from the output of Checkout → Create Link',
+		description: "ID of a test-mode order, taken from the output of 'Checkout → Create Link'",
 	},
 	{
 		displayName: 'Outcome',

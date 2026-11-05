@@ -5,9 +5,12 @@ import type {
 	IHookFunctions,
 	IHttpRequestOptions,
 	INodeExecutionData,
+	INodeParameters,
+	INode,
 	IWebhookFunctions,
 } from 'n8n-workflow';
 import { describe, expect, it } from 'vitest';
+import { Workflow } from 'n8n-workflow';
 
 import { decodeBody } from './request-body';
 
@@ -235,6 +238,38 @@ function fullResponse(payload: unknown, statusCode = 200) {
 	};
 }
 
+/** Exercise n8n's saved-parameter normalization and expression engine, not a fake evaluator. */
+function savedParameterReader(parameters: INodeParameters) {
+	const nodeType = new BitsnapTrigger();
+	const node: INode = {
+		id: 'trigger',
+		name: 'Bitsnap Trigger',
+		type: 'bitsnapTrigger',
+		typeVersion: 1,
+		position: [0, 0],
+		parameters,
+	};
+	const workflow = new Workflow({
+		nodes: [node],
+		connections: {},
+		active: false,
+		nodeTypes: {
+			getByName: () => nodeType,
+			getByNameAndVersion: () => nodeType,
+			getKnownTypes: () => ({}),
+		},
+	});
+	return (name: string, fallback?: unknown) =>
+		workflow.expression.getSimpleParameterValue(
+			node,
+			node.parameters[name],
+			'internal',
+			{},
+			undefined,
+			fallback,
+		);
+}
+
 /**
  * A hook context whose API answers with the given responses, one per call.
  * The static data lives in `staticData` so a test can set it up and read it.
@@ -246,11 +281,13 @@ function createHookContext(
 		events?: string[];
 		formIds?: (string | number)[];
 		workflowName?: string;
+		savedParameters?: INodeParameters;
 	} = {},
 ): HookFixture {
 	const calls: RecordedCall[] = [];
 	const queue = [...responses];
 	const staticData = options.staticData ?? {};
+	const readSaved = options.savedParameters && savedParameterReader(options.savedParameters);
 
 	const httpRequestWithAuthentication = async (_type: string, request: IHttpRequestOptions) => {
 		calls.push({
@@ -281,7 +318,9 @@ function createHookContext(
 		logger: { warn: () => undefined },
 		getWorkflowStaticData: () => staticData,
 		getNodeWebhookUrl: () => WEBHOOK_URL,
-		getNodeParameter: (name: string) => {
+		getNodeParameter: (name: string, fallback?: unknown) => {
+			if (readSaved) return readSaved(name, fallback);
+			if (name === 'formIds') return [];
 			if (name === 'events') return options.events ?? ['TRANSACTION_SUCCESS'];
 			if (name === 'options') return { formIds: options.formIds ?? [] };
 			throw new Error(`unexpected parameter ${name}`);
@@ -614,6 +653,35 @@ describe('webhookMethods.create', () => {
 		expect(calls).toHaveLength(2);
 	});
 
+	it.each([
+		{
+			response: { webhook: { id: 'wh_9' } },
+			cleanupResponse: {},
+			expected: 'The unverified webhook was removed.',
+		},
+		{
+			response: { webhook: { id: 'wh_9' } },
+			cleanupResponse: apiError(500, 'internal', 'Something broke.'),
+			expected: 'Check the Bitsnap dashboard',
+		},
+		{ response: {}, cleanupResponse: undefined, expected: 'Check the Bitsnap dashboard' },
+	])(
+		'describes the actual cleanup outcome: $expected',
+		async ({ response, cleanupResponse, expected }) => {
+			const { context } = createHookContext(
+				cleanupResponse === undefined ? [response] : [response, cleanupResponse],
+			);
+			await expect(hooks.create.call(context)).rejects.toMatchObject({
+				description: expect.stringContaining(expected),
+			});
+		},
+	);
+
+	it('reports a missing webhook ID even when the API returned a signing secret', async () => {
+		const { context } = createHookContext([{ signingSecret: WEBHOOK_KEY }]);
+		await expect(hooks.create.call(context)).rejects.toThrow(/no ID/);
+	});
+
 	it('throws without a delete when the API answers with neither webhook nor secret', async () => {
 		const { context, calls, staticData } = createHookContext([{}]);
 
@@ -677,8 +745,10 @@ function createWebhookContext(args: {
 	events?: string[];
 	options?: IDataObject;
 	staticData?: IDataObject;
+	savedParameters?: INodeParameters;
 }): WebhookFixture {
 	const response: WebhookFixture['response'] = {};
+	const readSaved = args.savedParameters && savedParameterReader(args.savedParameters);
 	const res = {
 		status(code: number) {
 			response.statusCode = code;
@@ -700,7 +770,9 @@ function createWebhookContext(args: {
 		getResponseObject: () => res,
 		getWorkflowStaticData: () =>
 			args.staticData ?? { webhookId: 'wh_9', signingSecret: WEBHOOK_KEY },
-		getNodeParameter: (name: string) => {
+		getNodeParameter: (name: string, fallback?: unknown) => {
+			if (readSaved) return readSaved(name, fallback);
+			if (name === 'formIds') return [];
 			if (name === 'events') return args.events ?? [ALL_EVENTS];
 			if (name === 'options') return args.options ?? {};
 			throw new Error(`unexpected parameter ${name}`);
@@ -745,7 +817,11 @@ describe('webhook()', () => {
 			},
 		});
 		const headers = { 'x-content-signature': computeSignature(JSON.stringify(lead), WEBHOOK_KEY) };
-		const kept = createWebhookContext({ body: lead, headers, options: { formIds: [12, ' 12 ', ''] } });
+		const kept = createWebhookContext({
+			body: lead,
+			headers,
+			options: { formIds: [12, ' 12 ', ''] },
+		});
 		expect((await node.webhook.call(kept.context)).workflowData?.[0][0].json.id).toBe('evt_lead');
 		const skipped = createWebhookContext({ body: lead, headers, options: { formIds: [34] } });
 		expect(await node.webhook.call(skipped.context)).toEqual({});
@@ -889,7 +965,10 @@ describe('BitsnapTrigger description', () => {
 			]),
 		);
 
-		expect(description.properties.some((property) => property.name === 'formIds')).toBe(false);
+		expect(description.properties.find((property) => property.name === 'formIds')).toMatchObject({
+			type: 'hidden',
+			default: [],
+		});
 		expect(defaults).toEqual({
 			formIds: [],
 			verifySignature: true,
@@ -906,4 +985,100 @@ describe('BitsnapTrigger description', () => {
 
 		expect(ignore?.description).toBe('Whether to drop events from test orders, if any arrive');
 	});
+});
+
+describe('saved form filter compatibility through n8n parameter handling', () => {
+	const cases: { name: string; parameters: INodeParameters; formIds: string[] }[] = [
+		{ name: 'absent filter', parameters: {}, formIds: [] },
+		{ name: 'legacy literal', parameters: { formIds: ['12'] }, formIds: ['12'] },
+		{
+			name: 'legacy expression',
+			parameters: { formIds: '={{ [12, " 12 ", ""] }}' },
+			formIds: ['12'],
+		},
+		{
+			name: 'legacy filter with other options',
+			parameters: { formIds: ['12'], options: { ignoreTestEvents: false } },
+			formIds: ['12'],
+		},
+		{ name: 'nested literal', parameters: { options: { formIds: ['12'] } }, formIds: ['12'] },
+		{
+			name: 'nested expression',
+			parameters: { options: { formIds: '={{ [12] }}' } },
+			formIds: ['12'],
+		},
+		{
+			name: 'nested override',
+			parameters: { formIds: ['34'], options: { formIds: ['12'] } },
+			formIds: ['12'],
+		},
+		{
+			name: 'nested expression override',
+			parameters: { formIds: '={{ [34] }}', options: { formIds: '={{ [12] }}' } },
+			formIds: ['12'],
+		},
+		{
+			name: 'explicit empty override',
+			parameters: { formIds: '={{ [34] }}', options: { formIds: [] } },
+			formIds: [],
+		},
+	];
+
+	for (const testCase of cases) {
+		const parameters = { events: ['CONFIGURATOR_SUBMISSION_CREATED'], ...testCase.parameters };
+
+		it(`registers ${testCase.name}`, async () => {
+			const { context, calls, staticData } = createHookContext(
+				[{ webhook: { id: 'wh_9' }, signingSecret: WEBHOOK_KEY }],
+				{ savedParameters: parameters },
+			);
+			expect(await hooks.create.call(context)).toBe(true);
+			expect(calls[0].body.formIds ?? []).toEqual(testCase.formIds);
+			expect(staticData.registeredFormIds).toBe(JSON.stringify(testCase.formIds));
+		});
+
+		it(`compares registration for ${testCase.name}`, async () => {
+			const { context, calls } = createHookContext(
+				[
+					{
+						webhooks: [
+							{
+								id: 'wh_9',
+								url: WEBHOOK_URL,
+								events: ['CONFIGURATOR_SUBMISSION_CREATED'],
+								formIds: testCase.formIds,
+							},
+						],
+					},
+				],
+				{
+					savedParameters: parameters,
+					staticData: { webhookId: 'wh_9', signingSecret: WEBHOOK_KEY },
+				},
+			);
+			expect(await hooks.checkExists.call(context)).toBe(true);
+			expect(calls.map((call) => call.method)).toEqual(['ListWebhooks']);
+		});
+
+		it(`filters deliveries for ${testCase.name}`, async () => {
+			for (const formId of ['12', '34']) {
+				const body = deliveryBody('CONFIGURATOR_SUBMISSION_CREATED', {
+					eventData: {
+						id: 'evt_lead',
+						event: 'CONFIGURATOR_SUBMISSION_CREATED',
+						configurator: { form: { id: formId } },
+					},
+				});
+				const { context } = createWebhookContext({
+					body,
+					savedParameters: parameters,
+					headers: { 'x-content-signature': computeSignature(JSON.stringify(body), WEBHOOK_KEY) },
+				});
+				const result = await new BitsnapTrigger().webhook.call(context);
+				expect(Boolean(result.workflowData)).toBe(
+					testCase.formIds.length === 0 || testCase.formIds.includes(formId),
+				);
+			}
+		});
+	}
 });

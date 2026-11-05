@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0
+
+- Preserved saved 1.0.6 trigger form filters and expressions while keeping the field in Options; explicit nested empty selections override older filters.
+- Moved optional Webhook Events into Additional Fields with legacy-selection compatibility and empty-as-all behavior. Kept Checkout Outcome required and marked checkout Product ID required.
+- Added Bitsnap OAuth2 credentials alongside API keys, using public-client PKCE, scoped consent, resource audience, and n8n token refresh. OAuth protocol support verified against n8n 2.46.6.
+- Added action node version 1.1 with compact Order Simplify output, AI Output field selection, and Order, Coupon Code, and checkout Product/Variant locators. Version 1 retains its previous output and ID-input contracts.
+- Version 1.1 Delete operations return exactly `{ "deleted": true }`; version 1 retains record IDs.
+- Improved operation labels, examples, actionable API/network messages, and webhook cleanup guidance. Documented upgrade behavior, OAuth setup, and signing-secret exposure.
+
 ## 1.0.8
 
 - Marked Webhook → Events and Checkout → Outcome as required core operation inputs, keeping their existing defaults and parameter paths.

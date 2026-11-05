@@ -58,13 +58,13 @@ export const couponProperties: INodeProperties[] = [
 			{
 				name: 'Create',
 				value: 'create',
-				action: 'Create a coupon',
+				action: 'Create coupon',
 				description: 'Create a discount coupon',
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				action: 'Delete a coupon',
+				action: 'Delete coupon',
 				description: 'Delete a coupon together with all its codes',
 			},
 			{
@@ -76,7 +76,7 @@ export const couponProperties: INodeProperties[] = [
 			{
 				name: 'Update',
 				value: 'update',
-				action: 'Update a coupon',
+				action: 'Update coupon',
 				description:
 					'Replace the settings of a coupon. Its codes stay. A product restriction, an expiry or the delivery switch left empty is removed.',
 			},
@@ -90,6 +90,7 @@ export const couponProperties: INodeProperties[] = [
 		name: 'name',
 		type: 'string',
 		default: '',
+		placeholder: 'e.g. summerCourse',
 		required: true,
 		displayOptions: {
 			show: {
@@ -193,7 +194,7 @@ export const couponProperties: INodeProperties[] = [
 			},
 		},
 		description:
-			'Whether to return amounts as decimal numbers (19.99) instead of minor units (1999). This covers money amounts and the minimum order amount of each code; the integers stay in the "…Minor" fields.',
+			"Whether to return amounts as decimal numbers (19.99) instead of minor units (1999). This covers money amounts and the minimum order amount of each code; the integers stay in the '…Minor' fields.",
 	},
 	{
 		displayName: 'Options',

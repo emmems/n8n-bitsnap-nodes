@@ -141,3 +141,18 @@ describe('checkoutResource', () => {
 		expect(options?.displayOptions?.show?.operation).toEqual(['createLink', 'settleTestPayment']);
 	});
 });
+
+describe('checkout required fields', () => {
+	it('requires a product ID for every item and keeps the paid outcome default', async () => {
+		const { checkoutProperties } = await import('../nodes/Bitsnap/resources/checkout/parameters');
+		const items = checkoutProperties.find((property) => property.name === 'items');
+		const item = items?.options?.find((option) => option.name === 'item');
+		expect(
+			item && 'values' in item && item.values.find((field) => field.name === 'productId'),
+		).toMatchObject({ type: 'string', required: true, default: '' });
+		expect(checkoutProperties.find((property) => property.name === 'outcome')).toMatchObject({
+			required: true,
+			default: 'paid',
+		});
+	});
+});

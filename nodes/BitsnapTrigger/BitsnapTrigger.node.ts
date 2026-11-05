@@ -88,6 +88,17 @@ function clearStoredWebhook(context: IHookFunctions): void {
 	delete staticData.registeredFormIds;
 }
 
+/** Keep the 1.0.6 field declared so n8n retains and evaluates saved expressions. */
+function selectedFormIds(
+	context: IHookFunctions | IWebhookFunctions,
+	options: TriggerOptions,
+): string[] {
+	const values = Object.prototype.hasOwnProperty.call(options, 'formIds')
+		? options.formIds
+		: context.getNodeParameter('formIds', []);
+	return normalizeFormIds((values ?? []) as (string | number)[]);
+}
+
 function normalizedSelection(values: readonly string[]): string {
 	return JSON.stringify([...new Set(values)].sort());
 }
@@ -108,6 +119,12 @@ export class BitsnapTrigger implements INodeType {
 			{
 				name: 'bitsnapApi',
 				required: true,
+				displayOptions: { show: { authentication: ['apiKey'] } },
+			},
+			{
+				name: 'bitsnapOAuth2Api',
+				required: true,
+				displayOptions: { show: { authentication: ['oAuth2'] } },
 			},
 		],
 		inputs: [],
@@ -121,6 +138,17 @@ export class BitsnapTrigger implements INodeType {
 			},
 		],
 		properties: [
+			{
+				displayName: 'Authentication',
+				name: 'authentication',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'API Key', value: 'apiKey' },
+					{ name: 'OAuth2', value: 'oAuth2' },
+				],
+				default: 'apiKey',
+			},
 			{
 				displayName:
 					'Events can arrive more than once and out of order, so deduplicate on the ID of the event',
@@ -138,6 +166,12 @@ export class BitsnapTrigger implements INodeType {
 				options: eventOptions(),
 			},
 			{
+				displayName: 'Legacy Form IDs',
+				name: 'formIds',
+				type: 'hidden',
+				default: [],
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
@@ -151,7 +185,7 @@ export class BitsnapTrigger implements INodeType {
 						default: [],
 						typeOptions: { loadOptionsMethod: 'getForms' },
 						description:
-							'Applies only to lead events; loading forms requires the "leads:read" scope. Leave empty to receive lead events for every form. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+							'Applies only to lead events; loading forms requires the \'leads:read\' scope. Leave empty to receive lead events for every form. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 					},
 					{
 						displayName: 'Ignore Test Events',
@@ -166,7 +200,7 @@ export class BitsnapTrigger implements INodeType {
 						type: 'boolean',
 						default: false,
 						description:
-							'Whether to add the body as Bitsnap sent it, as text, to the output (field "rawBody")',
+							"Whether to add the body as Bitsnap sent it, as text, to the output (field 'rawBody')",
 					},
 					{
 						displayName: 'Verify Signature',
@@ -216,9 +250,9 @@ export class BitsnapTrigger implements INodeType {
 				const holdsSecret = Boolean(stored.signingSecret && stored.webhookId);
 				const selectedEvents = this.getNodeParameter('events', ['TRANSACTION_SUCCESS']) as string[];
 				const options = this.getNodeParameter('options', {}) as TriggerOptions;
-				const selectedFormIds = normalizeFormIds(options.formIds ?? []);
+				const formIds = selectedFormIds(this, options);
 				const registeredEvents = normalizedSelection(eventsToRegister(selectedEvents));
-				const registeredFormIds = normalizedSelection(selectedFormIds);
+				const registeredFormIds = normalizedSelection(formIds);
 
 				// Only the webhook whose secret this workflow holds can verify a
 				// delivery. Every other copy would deliver each event a second time
@@ -258,7 +292,7 @@ export class BitsnapTrigger implements INodeType {
 
 				const selected = this.getNodeParameter('events', ['TRANSACTION_SUCCESS']) as string[];
 				const options = this.getNodeParameter('options', {}) as TriggerOptions;
-				const formIds = normalizeFormIds(options.formIds ?? []);
+				const formIds = selectedFormIds(this, options);
 				const body: IDataObject = {
 					name: webhookName(this.getWorkflow().name),
 					url: webhookUrl,
@@ -279,9 +313,12 @@ export class BitsnapTrigger implements INodeType {
 				if (!createdId || !signingSecret) {
 					// Without the secret no delivery can be verified. The server may
 					// have made the webhook, so do not leave it behind.
+					let cleanup =
+						'Check the Bitsnap dashboard for an unverified webhook and remove it if present.';
 					if (createdId) {
 						try {
 							await deleteWebhook(this, createdId);
+							cleanup = 'The unverified webhook was removed.';
 						} catch (error) {
 							this.logger.warn('Bitsnap Trigger could not remove a webhook it cannot verify', {
 								error: error instanceof Error ? error.message : String(error),
@@ -290,10 +327,11 @@ export class BitsnapTrigger implements INodeType {
 					}
 					throw new NodeOperationError(
 						this.getNode(),
-						'The Bitsnap API returned no signing secret for the webhook',
+						!signingSecret
+							? 'The Bitsnap API returned no signing secret for the webhook'
+							: 'The Bitsnap API returned no ID for the webhook',
 						{
-							description:
-								'The trigger needs the secret to verify deliveries, so it removed the webhook. Activate the workflow again, and contact Bitsnap support if this repeats.',
+							description: `The trigger needs a webhook ID and signing secret to verify deliveries. ${cleanup} Activate the workflow again, and contact Bitsnap support if this repeats.`,
 						},
 					);
 				}
@@ -352,7 +390,7 @@ export class BitsnapTrigger implements INodeType {
 		}
 
 		const selected = this.getNodeParameter('events', ['TRANSACTION_SUCCESS']) as string[];
-		const formIds = normalizeFormIds(options.formIds ?? []);
+		const formIds = selectedFormIds(this, options);
 		const item = shapeEvent(req.body, selected, {
 			formIds,
 			ignoreTestEvents: options.ignoreTestEvents ?? false,

@@ -28,8 +28,9 @@ const salesSummaryProperties: INodeProperties[] = [
 			{
 				name: 'Get',
 				value: 'get',
-				action: 'Get the sales summary',
-				description: 'Orders, units sold and revenue over a date range, with a daily breakdown',
+				action: 'Get sales summary',
+				description:
+					'Get a sales summary of orders, units sold and revenue, with a daily breakdown',
 			},
 		],
 		default: 'get',

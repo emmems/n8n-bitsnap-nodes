@@ -25,14 +25,14 @@ export const webhookProperties: INodeProperties[] = [
 			{
 				name: 'Create',
 				value: 'create',
-				action: 'Create a webhook',
+				action: 'Create webhook',
 				description:
-					'Register a webhook endpoint. Its signing secret ("signingSecret", whsec_…) is returned only once and stays in the execution data, where anyone who can view executions can read it. Store it right away, for example in a credential, and consider turning off saving successful executions in the workflow settings.',
+					"Register a webhook endpoint. Its signing secret ('signingSecret', whsec_…) is returned only once and stays in the execution data, where anyone who can view executions can read it. Store it right away, for example in a credential, and consider turning off saving successful executions in the workflow settings.",
 			},
 			{
 				name: 'Delete',
 				value: 'delete',
-				action: 'Delete a webhook',
+				action: 'Delete webhook',
 				description: 'Remove a webhook endpoint',
 			},
 			{
@@ -80,7 +80,7 @@ export const webhookProperties: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		required: true,
-		placeholder: 'https://example.com/bitsnap-webhook',
+		placeholder: 'e.g. https://example.com/bitsnap-webhook',
 		displayOptions: {
 			show: {
 				resource: ['webhook'],
@@ -91,20 +91,11 @@ export const webhookProperties: INodeProperties[] = [
 			'Public https URL Bitsnap sends the events to. Localhost and private addresses are refused.',
 	},
 	{
-		displayName: 'Events',
+		displayName: 'Legacy Events',
 		name: 'events',
-		type: 'multiOptions',
-		required: true,
+		type: 'hidden',
 		default: [WEBHOOK_EVENT_ALL],
-		options: WEBHOOK_EVENTS,
-		displayOptions: {
-			show: {
-				resource: ['webhook'],
-				operation: ['create'],
-			},
-		},
-		description:
-			'The events the endpoint receives. Choose the options from the list, or "All Events" for every event.',
+		displayOptions: { show: { resource: ['webhook'], operation: ['create'] } },
 	},
 	{
 		displayName: 'Additional Fields',
@@ -120,10 +111,20 @@ export const webhookProperties: INodeProperties[] = [
 		},
 		options: [
 			{
+				displayName: 'Events',
+				name: 'events',
+				type: 'multiOptions',
+				default: [WEBHOOK_EVENT_ALL],
+				options: WEBHOOK_EVENTS,
+				description:
+					"Events the endpoint receives. Choose 'All Events' or leave empty for every event.",
+			},
+			{
 				displayName: 'Name',
 				name: 'name',
 				type: 'string',
 				default: '',
+				placeholder: 'e.g. summerCourse',
 				description: `Label of the endpoint, at most ${WEBHOOK_NAME_MAX_LENGTH} characters`,
 			},
 		],
