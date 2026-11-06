@@ -100,4 +100,3 @@ jobs:
           # `prepublishOnly` runs `n8n-node prerelease`, which refuses to publish
           # unless RELEASE_MODE is set.
           RELEASE_MODE: 'true'
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
